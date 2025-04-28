@@ -7,15 +7,17 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { products } from "@/lib/data"
 import { useCart } from "@/contexts/cart-context"
-import { useCoupon } from "@/contexts/coupon-context"
 import { getImageUrlWithFallback } from "@/lib/image-utils"
+// First, import the useCoupon hook from the coupon context
+import { useCoupon } from "@/contexts/coupon-context"
 
 export default function FeaturedProducts() {
   // Only show the first 4 products
   const featuredProducts = products.slice(0, 4)
   const { addItem } = useCart()
-  const { calculateDiscountedPrice, appliedCoupon } = useCoupon()
   const router = useRouter()
+  // Add the coupon hook to access coupon functionality
+  const { appliedCoupon, calculateDiscountedPrice } = useCoupon()
 
   const handleAddToCart = (productId: string) => {
     const product = products.find((p) => p.id === productId)
@@ -44,7 +46,14 @@ export default function FeaturedProducts() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Update the grid div to include a coupon badge if a coupon is applied */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 relative">
+          {appliedCoupon && (
+            <div className="absolute -top-4 left-0 bg-amber-600 text-white text-sm font-medium px-3 py-1 rounded-full shadow-sm">
+              Coupon: {appliedCoupon.code} Applied
+            </div>
+          )}
+
           {featuredProducts.map((product) => (
             <Card key={product.id} className="overflow-hidden border-amber-100 hover:shadow-md transition-shadow">
               <div className="relative h-48">
@@ -58,25 +67,19 @@ export default function FeaturedProducts() {
               <CardContent className="pt-6">
                 <h3 className="text-lg font-semibold mb-2">{product.name}</h3>
                 <div className="flex items-center mb-2">
+                  {/* Update the price display to show strikethrough and discounted price */}
                   {appliedCoupon ? (
                     <>
-                      <span className="text-gray-500 text-sm line-through mr-2">₹{product.price.toFixed(2)}</span>
                       <span className="text-amber-700 font-bold">
-                        ₹{calculateDiscountedPrice(product.price, 1, 0, product).toFixed(2)}
+                        ₹{calculateDiscountedPrice(product.price).toFixed(2)}
                       </span>
-                      <span className="ml-2 text-xs px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full">
-                        {appliedCoupon.code}
-                      </span>
+                      <span className="text-gray-500 text-sm line-through ml-2">₹{product.price.toFixed(2)}</span>
                     </>
                   ) : (
-                    <>
-                      <span className="text-amber-700 font-bold">₹{product.price.toFixed(2)}</span>
-                      {product.originalPrice && (
-                        <span className="text-gray-500 text-sm line-through ml-2">
-                          ₹{product.originalPrice.toFixed(2)}
-                        </span>
-                      )}
-                    </>
+                    <span className="text-amber-700 font-bold">₹{product.price.toFixed(2)}</span>
+                  )}
+                  {product.originalPrice && !appliedCoupon && (
+                    <span className="text-gray-500 text-sm line-through ml-2">₹{product.originalPrice.toFixed(2)}</span>
                   )}
                 </div>
                 <p className="text-gray-600 text-sm">{product.description}</p>
