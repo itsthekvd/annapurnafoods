@@ -12,7 +12,6 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { useToast } from "@/hooks/use-toast"
 import { useCart } from "@/contexts/cart-context"
 import RazorpayPayment from "@/components/payment/razorpay-payment"
-import PhonePePayment from "@/components/payment/phonepe-payment"
 import { ChevronLeft, ChevronRight, User, MapPin, CreditCard, CheckCircle, ChevronDown } from "lucide-react"
 import Image from "next/image"
 import VoiceNoteRecorder from "@/components/checkout/voice-note-recorder"
@@ -39,6 +38,7 @@ const STEPS = {
 function GoogleMapsUrlInput({ onLocationSelect, defaultLocation }: any) {
   const [mapUrl, setMapUrl] = useState(defaultLocation?.mapUrl || "")
   const [isValid, setIsValid] = useState(true)
+  const initialLoadRef = useRef(true)
 
   // Example URLs
   const exampleUrls = [
@@ -49,6 +49,8 @@ function GoogleMapsUrlInput({ onLocationSelect, defaultLocation }: any) {
 
   // Load saved map URL from localStorage on component mount
   useEffect(() => {
+    if (!initialLoadRef.current) return
+
     try {
       const savedLocationInfo = localStorage.getItem("annapurna-location-info")
       if (savedLocationInfo) {
@@ -56,11 +58,14 @@ function GoogleMapsUrlInput({ onLocationSelect, defaultLocation }: any) {
         if (parsedInfo.mapUrl) {
           setMapUrl(parsedInfo.mapUrl)
           setIsValid(true)
+          // Only call onLocationSelect during initial load
           onLocationSelect(parsedInfo)
         }
       }
+      initialLoadRef.current = false
     } catch (error) {
       console.error("Failed to load saved location info:", error)
+      initialLoadRef.current = false
     }
   }, [onLocationSelect])
 
@@ -138,7 +143,8 @@ export default function CheckoutPageClient() {
     // Load saved payment method from localStorage
     if (typeof window !== "undefined") {
       const savedMethod = localStorage.getItem("annapurna-payment-method")
-      return savedMethod || "razorpay"
+      // Only return "razorpay" regardless of what's saved
+      return "razorpay"
     }
     return "razorpay"
   })
@@ -226,6 +232,7 @@ export default function CheckoutPageClient() {
     }
 
     loadCartFromStorage()
+    // Empty dependency array to ensure this only runs once on mount
   }, [])
 
   // Load saved customer info from localStorage
@@ -318,6 +325,7 @@ export default function CheckoutPageClient() {
   useEffect(() => {
     // Use either context items or localStorage items
     const itemsToUse = items.length > 0 ? items : localStorageItems
+    if (itemsToUse.length === 0) return
 
     const hasSubscriptionItem = itemsToUse.some(
       (item) => item.subscriptionOption && item.subscriptionOption !== "one-time",
@@ -325,8 +333,8 @@ export default function CheckoutPageClient() {
     setHasSubscription(hasSubscriptionItem)
 
     // Determine meal type (brunch or dinner)
-    const brunchItem = itemsToUse.find((item) => item.product.id === "brunch")
-    const dinnerItem = itemsToUse.find((item) => item.product.id === "dinner")
+    const brunchItem = itemsToUse.find((item) => item.product?.id === "brunch")
+    const dinnerItem = itemsToUse.find((item) => item.product?.id === "dinner")
 
     if (brunchItem) {
       setMealType("brunch")
@@ -385,11 +393,12 @@ export default function CheckoutPageClient() {
   useEffect(() => {
     // Use either context items or localStorage items
     const itemsToUse = items.length > 0 ? items : localStorageItems
+    if (itemsToUse.length === 0 || !updateSubscription) return
 
     // Find meal subscription (brunch or dinner)
     const mealSub = itemsToUse.find(
       (item) =>
-        (item.product.id === "brunch" || item.product.id === "dinner") &&
+        (item.product?.id === "brunch" || item.product?.id === "dinner") &&
         item.subscriptionOption &&
         item.subscriptionOption !== "one-time",
     )
@@ -397,7 +406,7 @@ export default function CheckoutPageClient() {
     // Find sweets subscription
     const sweetsSub = itemsToUse.find(
       (item) =>
-        item.product.id === "sweets-subscription" && item.subscriptionOption && item.subscriptionOption !== "one-time",
+        item.product?.id === "sweets-subscription" && item.subscriptionOption && item.subscriptionOption !== "one-time",
     )
 
     // If both exist but have different subscription options/days, update sweets to match meal
@@ -998,29 +1007,7 @@ export default function CheckoutPageClient() {
                           />
                         </div>
                       </div>
-                      <div
-                        className="flex items-center space-x-2 border p-4 rounded-lg hover:bg-purple-50 cursor-pointer"
-                        onClick={() => handlePaymentMethodChange("phonepe")}
-                      >
-                        <RadioGroupItem value="phonepe" id="phonepe" />
-                        <Label htmlFor="phonepe" className="flex-1 cursor-pointer">
-                          <div className="font-medium">Pay with PhonePe</div>
-                          <div className="text-sm text-gray-600">Quick and secure payments with PhonePe</div>
-                        </Label>
-                        <div className="w-24 h-10 relative">
-                          <Image
-                            src="/images/phonepe-logo.png"
-                            alt="PhonePe"
-                            fill
-                            className="object-contain"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement
-                              target.src =
-                                "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/phonepe%20brand%20logo.jpg-ADPYAGEn2xjnsmcDNubiJABdEk2vSk.jpeg"
-                            }}
-                          />
-                        </div>
-                      </div>
+                      {/* Remove PhonePe payment option */}
                     </RadioGroup>
 
                     {/* Upsell/Order Bumps Section - Only show on payment step */}
@@ -1062,21 +1049,7 @@ export default function CheckoutPageClient() {
                           className="mb-4"
                         />
                       )}
-
-                      {paymentMethod === "phonepe" && (
-                        <PhonePePayment
-                          amount={total}
-                          customerInfo={{
-                            name: customerInfo.name,
-                            email: customerInfo.email || "customer@example.com",
-                            phone: customerInfo.phone,
-                            address: locationInfo.address,
-                          }}
-                          onSuccess={handlePaymentSuccess}
-                          onFailure={handlePaymentFailure}
-                          className="mb-4"
-                        />
-                      )}
+                      {/* Remove PhonePe payment button */}
                     </div>
                   </div>
                 </motion.div>
@@ -1279,29 +1252,7 @@ export default function CheckoutPageClient() {
                           />
                         </div>
                       </div>
-                      <div
-                        className="flex items-center space-x-2 border p-4 rounded-lg hover:bg-purple-50 cursor-pointer"
-                        onClick={() => handlePaymentMethodChange("phonepe")}
-                      >
-                        <RadioGroupItem value="phonepe" id="phonepe" />
-                        <Label htmlFor="phonepe" className="flex-1 cursor-pointer">
-                          <div className="font-medium">Pay with PhonePe</div>
-                          <div className="text-sm text-gray-600">Quick and secure payments with PhonePe</div>
-                        </Label>
-                        <div className="w-24 h-10 relative">
-                          <Image
-                            src="/images/phonepe-logo.png"
-                            alt="PhonePe"
-                            fill
-                            className="object-contain"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement
-                              target.src =
-                                "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/phonepe%20brand%20logo.jpg-ADPYAGEn2xjnsmcDNubiJABdEk2vSk.jpeg"
-                            }}
-                          />
-                        </div>
-                      </div>
+                      {/* Remove PhonePe payment option */}
                     </RadioGroup>
                   </div>
                 )}
@@ -1362,21 +1313,7 @@ export default function CheckoutPageClient() {
                       className="mb-4"
                     />
                   )}
-
-                  {paymentMethod === "phonepe" && (
-                    <PhonePePayment
-                      amount={total}
-                      customerInfo={{
-                        name: customerInfo.name,
-                        email: customerInfo.email || "customer@example.com",
-                        phone: customerInfo.phone,
-                        address: locationInfo.address,
-                      }}
-                      onSuccess={handlePaymentSuccess}
-                      onFailure={handlePaymentFailure}
-                      className="mb-4"
-                    />
-                  )}
+                  {/* Remove PhonePe payment button */}
                 </div>
               )}
             </div>
