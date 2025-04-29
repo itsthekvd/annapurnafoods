@@ -85,40 +85,14 @@ export default function OrderSummary() {
         </div>
 
         <div className="border-t pt-3 space-y-3">
-          {/* Original Subtotal (before discount) */}
           <div className="flex justify-between">
-            <span className="text-gray-600">Original Subtotal</span>
-            <span>₹{originalSubtotal.toFixed(2)}</span>
-          </div>
-
-          {/* Discount */}
-          {appliedCoupon && (
-            <div className="flex justify-between text-green-600">
-              <span>
-                {appliedCoupon.type === "special" && appliedCoupon.specialAction === "set_total_to_one"
-                  ? "Special Discount"
-                  : `Discount (${appliedCoupon.code})`}
-              </span>
-              <span>
-                {appliedCoupon.type === "special" && appliedCoupon.specialAction === "set_total_to_one"
-                  ? `-₹${(originalSubtotal - 1).toFixed(2)}`
-                  : `-₹${(originalSubtotal - subtotal).toFixed(2)}`}
-              </span>
-            </div>
-          )}
-
-          {/* Discounted Subtotal */}
-          <div className="flex justify-between font-medium">
-            <span className="text-gray-700">Subtotal after discount</span>
+            <span className="text-gray-600">Subtotal</span>
             <span>₹{subtotal.toFixed(2)}</span>
           </div>
-
-          {/* Delivery Fee */}
           <div className="flex justify-between">
             <span className="text-gray-600">Delivery Fee</span>
             <span>₹{deliveryFee.toFixed(2)}</span>
           </div>
-
           {deliveryFee > 0 && (
             <p className="text-xs text-gray-500 text-right">
               {items.some((item) => item.subscriptionOption && item.subscriptionOption !== "one-time")
@@ -148,18 +122,25 @@ export default function OrderSummary() {
                     : "Based on your delivery location"}
             </p>
           )}
-
-          {/* Final Total */}
+          {appliedCoupon && (
+            <div className="flex justify-between text-green-600">
+              <span>
+                {appliedCoupon.type === "special" && appliedCoupon.specialAction === "set_total_to_one"
+                  ? "Special Discount"
+                  : `Discount (${appliedCoupon.code})`}
+              </span>
+              <span>
+                {appliedCoupon.type === "special" && appliedCoupon.specialAction === "set_total_to_one"
+                  ? `-₹${(originalSubtotal - 1).toFixed(2)}`
+                  : `-₹${(subtotal - (total - deliveryFee)).toFixed(2)}`}
+              </span>
+            </div>
+          )}
           <div className="border-t pt-3 mt-3">
             <div className="flex justify-between font-semibold">
               <span>Total</span>
               <span className="text-amber-700">₹{total.toFixed(2)}</span>
             </div>
-            {appliedCoupon && (
-              <p className="text-xs text-green-600 text-right mt-1">
-                You saved ₹{(originalSubtotal - subtotal).toFixed(2)} with coupon {appliedCoupon.code}
-              </p>
-            )}
           </div>
         </div>
       </CardContent>
