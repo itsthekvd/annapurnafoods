@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
@@ -35,7 +35,15 @@ export default function RazorpayPayment({
 }: RazorpayPaymentProps) {
   const [loading, setLoading] = useState(false)
   const [scriptLoaded, setScriptLoaded] = useState(false)
+  const [buttonClicked, setButtonClicked] = useState(false)
   const { toast } = useToast()
+
+  // Check if Razorpay script is already loaded
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.Razorpay) {
+      setScriptLoaded(true)
+    }
+  }, [])
 
   // Function to create a Razorpay order
   const createRazorpayOrder = async () => {
@@ -89,6 +97,9 @@ export default function RazorpayPayment({
   }
 
   const handlePayment = async () => {
+    if (loading || !scriptLoaded) return
+
+    setButtonClicked(true)
     setLoading(true)
 
     try {
@@ -142,14 +153,18 @@ export default function RazorpayPayment({
             })
             onFailure(new Error("Payment verification failed"))
           }
+          setLoading(false)
+          setButtonClicked(false)
         },
         modal: {
           ondismiss: () => {
             setLoading(false)
+            setButtonClicked(false)
             toast({
               title: "Payment cancelled",
               description: "You cancelled the payment process.",
             })
+            onFailure(new Error("Payment cancelled by user"))
           },
         },
       }
@@ -164,6 +179,7 @@ export default function RazorpayPayment({
           })
           onFailure(new Error(response.error.description))
           setLoading(false)
+          setButtonClicked(false)
         })
         razorpay.open()
       } else {
@@ -174,6 +190,7 @@ export default function RazorpayPayment({
         })
         onFailure(new Error("Razorpay SDK not loaded"))
         setLoading(false)
+        setButtonClicked(false)
       }
     } catch (error) {
       console.error("Payment error:", error)
@@ -184,6 +201,7 @@ export default function RazorpayPayment({
       })
       onFailure(error)
       setLoading(false)
+      setButtonClicked(false)
     }
   }
 
@@ -199,7 +217,7 @@ export default function RazorpayPayment({
       <Button
         onClick={handlePayment}
         className={`w-full bg-amber-700 hover:bg-amber-800 py-6 text-lg ${className || ""}`}
-        disabled={loading || !scriptLoaded}
+        disabled={loading || !scriptLoaded || buttonClicked}
       >
         {loading ? (
           <>

@@ -1,29 +1,7 @@
-import type { Product } from "@/lib/types"
 import { subscriptionOptions } from "@/lib/data"
 
 /**
- * Utility functions for consistent price calculations across the application
- */
-
-/**
- * Calculate the subscription discount for a product
- * @param price - The base price
- * @param subscriptionOption - The subscription option ID
- * @returns The discounted price after subscription discount
- */
-export function calculateSubscriptionDiscount(price: number, subscriptionOption: string): number {
-  if (subscriptionOption === "one-time") return price
-
-  const option = subscriptionOptions.find((opt) => opt.id === subscriptionOption)
-  const discountPercentage = option ? option.discountPercentage : 0
-
-  return price * (1 - discountPercentage / 100)
-}
-
-/**
- * Get the number of days in a subscription
- * @param subscriptionOption - The subscription option ID
- * @returns The number of days in the subscription
+ * Gets the number of days in a subscription option
  */
 export function getDaysInSubscription(subscriptionOption: string): number {
   const option = subscriptionOptions.find((opt) => opt.id === subscriptionOption)
@@ -31,26 +9,39 @@ export function getDaysInSubscription(subscriptionOption: string): number {
 }
 
 /**
- * Calculate the total price for a product with quantity and subscription
- * @param product - The product
- * @param quantity - The quantity
- * @param subscriptionOption - The subscription option ID
- * @param subscriptionDuration - The subscription duration in months
- * @returns The total price
+ * Gets the discount percentage for a subscription option
  */
-export function calculateTotalPrice(
-  product: Product,
-  quantity: number,
-  subscriptionOption = "one-time",
-  subscriptionDuration = 1,
-): number {
-  const basePrice = product.price
-  const discountedPrice = calculateSubscriptionDiscount(basePrice, subscriptionOption)
+export function getSubscriptionDiscountPercentage(subscriptionOption: string): number {
+  const option = subscriptionOptions.find((opt) => opt.id === subscriptionOption)
+  return option ? option.discountPercentage : 0
+}
 
-  if (subscriptionOption === "one-time") {
-    return discountedPrice * quantity
-  } else {
-    const days = getDaysInSubscription(subscriptionOption)
-    return discountedPrice * days * quantity * subscriptionDuration
-  }
+/**
+ * Calculates the price after applying subscription discount
+ */
+export function calculateSubscriptionDiscount(price: number, subscriptionOption: string): number {
+  const discountPercentage = getSubscriptionDiscountPercentage(subscriptionOption)
+  return price * (1 - discountPercentage / 100)
+}
+
+/**
+ * Calculates the total price for a subscription
+ */
+export function calculateSubscriptionTotal(
+  basePrice: number,
+  subscriptionOption: string,
+  quantity: number,
+  duration = 1,
+): number {
+  const discountedPrice = calculateSubscriptionDiscount(basePrice, subscriptionOption)
+  const daysInSubscription = getDaysInSubscription(subscriptionOption)
+
+  return discountedPrice * daysInSubscription * quantity * duration
+}
+
+/**
+ * Formats a price as Indian Rupees
+ */
+export function formatPrice(price: number): string {
+  return `₹${price.toFixed(2)}`
 }

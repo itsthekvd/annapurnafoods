@@ -270,7 +270,7 @@ export default function CheckoutPageClient() {
       updateOrderStatus(orderId, "checkout_started")
       trackCheckoutStep(0, orderId, { items, total })
     }
-  }, [orderId])
+  }, [orderId, updateOrderStatus, trackCheckoutStep, items, total])
 
   // CRITICAL: Modify the redirect logic to be more robust
   useEffect(() => {
@@ -809,6 +809,28 @@ export default function CheckoutPageClient() {
       </div>
     )
   }
+
+  // Add this useEffect for mobile-specific adjustments
+  useEffect(() => {
+    if (isMobile) {
+      // Adjust UI for mobile devices
+      const adjustForMobile = () => {
+        // Ensure payment buttons are large enough for touch
+        const paymentButtons = document.querySelectorAll(".payment-button")
+        paymentButtons.forEach((button) => {
+          button.classList.add("py-6", "text-lg")
+        })
+
+        // Ensure form inputs have enough spacing
+        const formInputs = document.querySelectorAll("input, select, textarea")
+        formInputs.forEach((input) => {
+          input.classList.add("mb-4")
+        })
+      }
+
+      adjustForMobile()
+    }
+  }, [isMobile])
 
   return (
     <div className="container mx-auto px-4 py-12">

@@ -1,12 +1,13 @@
 import type { Metadata } from "next"
 import CheckoutPageClient from "./checkout-page-client"
+import { getBreadcrumbSchema } from "@/lib/schema-utils"
 
 export const metadata: Metadata = {
-  title: "Checkout - Annapurna Foods | Home Meal Delivery in Coimbatore",
+  title: "Checkout - Annapurna Foods | Sattvik Meal Delivery in Coimbatore",
   description:
     "Complete your order for fresh, home-cooked Sattvik meals delivered to your doorstep near Isha Yoga Center Coimbatore.",
   openGraph: {
-    title: "Checkout - Annapurna Foods Home Meal Delivery",
+    title: "Checkout - Annapurna Foods Sattvik Meal Delivery",
     description:
       "Complete your order for fresh, home-cooked Sattvik meals delivered to your doorstep near Isha Yoga Center Coimbatore.",
     images: [
@@ -17,13 +18,31 @@ export const metadata: Metadata = {
         alt: "Annapurna Foods Checkout",
       },
     ],
+    locale: "en_IN",
+    type: "website",
   },
   robots: {
-    index: true,
+    index: false,
     follow: true,
   },
 }
 
 export default function CheckoutPage() {
-  return <CheckoutPageClient />
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(
+            getBreadcrumbSchema([
+              { name: "Home", url: "https://annapurna.food" },
+              { name: "Cart", url: "https://annapurna.food/cart" },
+              { name: "Checkout", url: "https://annapurna.food/checkout" },
+            ]),
+          ),
+        }}
+      />
+      <CheckoutPageClient />
+    </>
+  )
 }
