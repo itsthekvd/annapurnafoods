@@ -8,11 +8,10 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { RadioGroupItem } from "@/components/ui/radio-group"
 import { useToast } from "@/hooks/use-toast"
 import { useCart } from "@/contexts/cart-context"
 import RazorpayPayment from "@/components/payment/razorpay-payment"
-import PhonePePayment from "@/components/payment/phonepe-payment"
 import { ChevronLeft, ChevronRight, User, MapPin, CreditCard, CheckCircle, ChevronDown } from "lucide-react"
 import Image from "next/image"
 import VoiceNoteRecorder from "@/components/checkout/voice-note-recorder"
@@ -134,14 +133,8 @@ export default function CheckoutPageClient() {
   const [expandedSection, setExpandedSection] = useState(STEPS.CONTACT)
   const [completedSections, setCompletedSections] = useState<number[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [paymentMethod, setPaymentMethod] = useState(() => {
-    // Load saved payment method from localStorage
-    if (typeof window !== "undefined") {
-      const savedMethod = localStorage.getItem("annapurna-payment-method")
-      return savedMethod || "razorpay"
-    }
-    return "razorpay"
-  })
+  // Modify the payment method state to always use Razorpay:
+  const [paymentMethod, setPaymentMethod] = useState("razorpay")
   const [upsellProducts, setUpsellProducts] = useState<any[]>([])
   const [hasSubscription, setHasSubscription] = useState(false)
   const [mealType, setMealType] = useState("")
@@ -614,26 +607,25 @@ export default function CheckoutPageClient() {
     }
   }
 
-  // Update payment method selection to track
-  const handlePaymentMethodChange = (value: string) => {
-    setPaymentMethod(value)
-    // Save to localStorage
-    localStorage.setItem("annapurna-payment-method", value)
+  // Remove this function:
+  // const handlePaymentMethodChange = (value: string) => {
+  //   setPaymentMethod(value)
+  //   // Save to localStorage
+  //   localStorage.setItem("annapurna-payment-method", value)
 
-    if (orderId) {
-      updateOrder(orderId, {
-        paymentMethod: value,
-        status: "payment_selected",
-      })
+  //   if (orderId) {
+  //     updateOrder(orderId, {
+  //       paymentMethod: value,
+  //       status: "payment_selected",
+  //     })
 
-      trackCheckoutStep(3, orderId, {
-        step: "payment_selected",
-        paymentMethod: value,
-      })
-    }
-  }
+  //     trackCheckoutStep(3, orderId, {
+  //       step: "payment_selected",
+  //       paymentMethod: value,
+  //     })
+  //   }
+  // }
 
-  // Find the handlePaymentSuccess function and update it to include more data
   const handlePaymentSuccess = (paymentId: string, orderId: string) => {
     // Use either context items or localStorage items
     const itemsToDisplay = items.length > 0 ? items : localStorageItems
@@ -972,13 +964,10 @@ export default function CheckoutPageClient() {
                       <CouponInput />
                     </div>
 
-                    <RadioGroup value={paymentMethod} onValueChange={handlePaymentMethodChange} className="space-y-3">
-                      <div
-                        className="flex items-center space-x-2 border p-4 rounded-lg hover:bg-amber-100 cursor-pointer"
-                        onClick={() => handlePaymentMethodChange("razorpay")}
-                      >
-                        <RadioGroupItem value="razorpay" id="razorpay" />
-                        <Label htmlFor="razorpay" className="flex-1 cursor-pointer">
+                    <div className="mb-6">
+                      <div className="flex items-center space-x-2 border p-4 rounded-lg bg-amber-50">
+                        <RadioGroupItem value="razorpay" id="razorpay-mobile" checked />
+                        <Label htmlFor="razorpay-mobile" className="flex-1">
                           <div className="font-medium">Pay with Razorpay</div>
                           <div className="text-sm text-gray-600">
                             Pay securely with credit/debit card, UPI, or net banking
@@ -998,30 +987,7 @@ export default function CheckoutPageClient() {
                           />
                         </div>
                       </div>
-                      <div
-                        className="flex items-center space-x-2 border p-4 rounded-lg hover:bg-purple-50 cursor-pointer"
-                        onClick={() => handlePaymentMethodChange("phonepe")}
-                      >
-                        <RadioGroupItem value="phonepe" id="phonepe" />
-                        <Label htmlFor="phonepe" className="flex-1 cursor-pointer">
-                          <div className="font-medium">Pay with PhonePe</div>
-                          <div className="text-sm text-gray-600">Quick and secure payments with PhonePe</div>
-                        </Label>
-                        <div className="w-24 h-10 relative">
-                          <Image
-                            src="/images/phonepe-logo.png"
-                            alt="PhonePe"
-                            fill
-                            className="object-contain"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement
-                              target.src =
-                                "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/phonepe%20brand%20logo.jpg-ADPYAGEn2xjnsmcDNubiJABdEk2vSk.jpeg"
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </RadioGroup>
+                    </div>
 
                     {/* Upsell/Order Bumps Section - Only show on payment step */}
                     {hasSubscription && <SweetsSubscriptionUpsell />}
@@ -1048,35 +1014,18 @@ export default function CheckoutPageClient() {
 
                     {/* Payment buttons */}
                     <div className="w-full space-y-4 mt-4">
-                      {paymentMethod === "razorpay" && (
-                        <RazorpayPayment
-                          amount={total}
-                          customerInfo={{
-                            name: customerInfo.name,
-                            email: customerInfo.email || "customer@example.com",
-                            phone: customerInfo.phone,
-                            address: locationInfo.address,
-                          }}
-                          onSuccess={handlePaymentSuccess}
-                          onFailure={handlePaymentFailure}
-                          className="mb-4"
-                        />
-                      )}
-
-                      {paymentMethod === "phonepe" && (
-                        <PhonePePayment
-                          amount={total}
-                          customerInfo={{
-                            name: customerInfo.name,
-                            email: customerInfo.email || "customer@example.com",
-                            phone: customerInfo.phone,
-                            address: locationInfo.address,
-                          }}
-                          onSuccess={handlePaymentSuccess}
-                          onFailure={handlePaymentFailure}
-                          className="mb-4"
-                        />
-                      )}
+                      <RazorpayPayment
+                        amount={total}
+                        customerInfo={{
+                          name: customerInfo.name,
+                          email: customerInfo.email || "customer@example.com",
+                          phone: customerInfo.phone,
+                          address: locationInfo.address,
+                        }}
+                        onSuccess={handlePaymentSuccess}
+                        onFailure={handlePaymentFailure}
+                        className="mb-4"
+                      />
                     </div>
                   </div>
                 </motion.div>
@@ -1088,7 +1037,6 @@ export default function CheckoutPageClient() {
         {/* Order Summary for Mobile */}
         <OrderSummary />
       </div>
-      ;
       <div className="hidden md:block">
         {/* Checkout Progress */}
         <div className="mb-8">
@@ -1253,13 +1201,10 @@ export default function CheckoutPageClient() {
                       <CouponInput />
                     </div>
 
-                    <RadioGroup value={paymentMethod} onValueChange={handlePaymentMethodChange} className="space-y-3">
-                      <div
-                        className="flex items-center space-x-2 border p-4 rounded-lg hover:bg-amber-100 cursor-pointer"
-                        onClick={() => handlePaymentMethodChange("razorpay")}
-                      >
-                        <RadioGroupItem value="razorpay" id="razorpay" />
-                        <Label htmlFor="razorpay" className="flex-1 cursor-pointer">
+                    <div className="mb-6">
+                      <div className="flex items-center space-x-2 border p-4 rounded-lg bg-amber-50">
+                        <RadioGroupItem value="razorpay" id="razorpay-desktop" checked />
+                        <Label htmlFor="razorpay-desktop" className="flex-1">
                           <div className="font-medium">Pay with Razorpay</div>
                           <div className="text-sm text-gray-600">
                             Pay securely with credit/debit card, UPI, or net banking
@@ -1279,30 +1224,7 @@ export default function CheckoutPageClient() {
                           />
                         </div>
                       </div>
-                      <div
-                        className="flex items-center space-x-2 border p-4 rounded-lg hover:bg-purple-50 cursor-pointer"
-                        onClick={() => handlePaymentMethodChange("phonepe")}
-                      >
-                        <RadioGroupItem value="phonepe" id="phonepe" />
-                        <Label htmlFor="phonepe" className="flex-1 cursor-pointer">
-                          <div className="font-medium">Pay with PhonePe</div>
-                          <div className="text-sm text-gray-600">Quick and secure payments with PhonePe</div>
-                        </Label>
-                        <div className="w-24 h-10 relative">
-                          <Image
-                            src="/images/phonepe-logo.png"
-                            alt="PhonePe"
-                            fill
-                            className="object-contain"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement
-                              target.src =
-                                "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/phonepe%20brand%20logo.jpg-ADPYAGEn2xjnsmcDNubiJABdEk2vSk.jpeg"
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </RadioGroup>
+                    </div>
                   </div>
                 )}
               </CardContent>
@@ -1348,35 +1270,18 @@ export default function CheckoutPageClient() {
               ) : (
                 // Payment buttons on payment stage
                 <div className="w-full space-y-4 mt-4">
-                  {paymentMethod === "razorpay" && (
-                    <RazorpayPayment
-                      amount={total}
-                      customerInfo={{
-                        name: customerInfo.name,
-                        email: customerInfo.email || "customer@example.com",
-                        phone: customerInfo.phone,
-                        address: locationInfo.address,
-                      }}
-                      onSuccess={handlePaymentSuccess}
-                      onFailure={handlePaymentFailure}
-                      className="mb-4"
-                    />
-                  )}
-
-                  {paymentMethod === "phonepe" && (
-                    <PhonePePayment
-                      amount={total}
-                      customerInfo={{
-                        name: customerInfo.name,
-                        email: customerInfo.email || "customer@example.com",
-                        phone: customerInfo.phone,
-                        address: locationInfo.address,
-                      }}
-                      onSuccess={handlePaymentSuccess}
-                      onFailure={handlePaymentFailure}
-                      className="mb-4"
-                    />
-                  )}
+                  <RazorpayPayment
+                    amount={total}
+                    customerInfo={{
+                      name: customerInfo.name,
+                      email: customerInfo.email || "customer@example.com",
+                      phone: customerInfo.phone,
+                      address: locationInfo.address,
+                    }}
+                    onSuccess={handlePaymentSuccess}
+                    onFailure={handlePaymentFailure}
+                    className="mb-4"
+                  />
                 </div>
               )}
             </div>
