@@ -155,7 +155,7 @@ export const availableCoupons: Coupon[] = [
     discount: 150, // ₹150 off per meal (350 -> 200)
     description: "Special discount for Isha meditators",
     type: "fixed",
-    isActive: true,
+    isActive: false, // Changed from true to false
     isHidden: false,
   },
   {
@@ -165,7 +165,7 @@ export const availableCoupons: Coupon[] = [
     type: "percentage",
     minOrderValue: 0,
     maxDiscount: 1000, // Maximum discount of ₹1000
-    isActive: true,
+    isActive: false, // Changed from true to false
     isHidden: true, // This coupon is hidden from regular UI
   },
   {
