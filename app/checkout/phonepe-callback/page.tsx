@@ -7,12 +7,14 @@ import WebhookService from "@/lib/webhook-service"
 import { Loader2, CheckCircle, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ORDER_STATUS } from "@/lib/types"
+import { useToast } from "@/components/ui/use-toast"
 
 export default function PhonePeCallbackPage() {
   const router = useRouter()
   const [status, setStatus] = useState<"loading" | "success" | "failure">("loading")
   const [message, setMessage] = useState("Verifying your payment...")
   const [couponCode, setCouponCode] = useState<string | null>(null)
+  const { toast } = useToast()
 
   useEffect(() => {
     // Try to get coupon code from session storage
@@ -26,17 +28,56 @@ export default function PhonePeCallbackPage() {
       console.error("Failed to parse coupon info:", e)
     }
 
-    // Then process the payment
-    handleSuccessfulPayment()
+    // Get the status from the URL
+    const searchParams = new URLSearchParams(window.location.search)
+    const paymentStatus = searchParams.get("status")
+    const transactionId = searchParams.get("transactionId")
+    const merchantTransactionId = searchParams.get("merchantTransactionId")
+
+    // Check if the payment was successful
+    if (paymentStatus === "COMPLETED") {
+      // Call the success handler
+      handleSuccessfulPayment(transactionId, merchantTransactionId)
+    } else if (paymentStatus === "FAILED" || paymentStatus === "CANCELLED") {
+      // Show error message
+      toast({
+        title: "Payment not completed",
+        description: `Your payment was ${paymentStatus.toLowerCase()}. Please try again.`,
+        variant: "destructive",
+      })
+
+      setStatus("failure")
+      setMessage(`Your payment was ${paymentStatus.toLowerCase()}. Please try again.`)
+
+      // Redirect back to checkout after a delay
+      setTimeout(() => {
+        router.push("/checkout")
+      }, 3000)
+    } else {
+      // Handle other statuses
+      toast({
+        title: "Payment status",
+        description: `Your payment is ${paymentStatus?.toLowerCase() || "pending"}. Please contact support if you need assistance.`,
+      })
+
+      setStatus("loading")
+      setMessage(
+        `Your payment is ${paymentStatus?.toLowerCase() || "pending"}. Please contact support if you need assistance.`,
+      )
+
+      setTimeout(() => {
+        router.push("/checkout")
+      }, 5000)
+    }
   }, [])
 
-  const handleSuccessfulPayment = async () => {
+  const handleSuccessfulPayment = async (txnId: string | null, merchantTransactionId: string | null) => {
     try {
       // Get transaction ID from URL query parameters
-      const urlParams = new URLSearchParams(window.location.search)
-      const txnId = urlParams.get("txnId")
+      // const urlParams = new URLSearchParams(window.location.search)
+      // const txnId = urlParams.get("txnId")
 
-      console.log("PhonePe callback received with txnId:", txnId)
+      console.log("PhonePe callback received with txnId:", txnId, "merchantTransactionId", merchantTransactionId)
 
       // Get stored transaction details
       const storedTransaction = sessionStorage.getItem("phonePeTransaction")

@@ -43,24 +43,53 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid merchant ID" }, { status: 400 })
     }
 
-    // Check if the payment was successful
+    // Update the payment status handling logic to properly handle different payment states
     if (paymentState === "COMPLETED") {
       // Payment was successful
-      // Update your database, send confirmation emails, etc.
+      // Store the payment status in session storage for the client to check
+      try {
+        // We'll need to handle this on the client side since we can't directly modify session storage from the server
+        console.log("Payment completed successfully:", transactionId)
 
-      // Return a success response to PhonePe
+        // Return a success response with the payment status
+        return NextResponse.json({
+          success: true,
+          status: "COMPLETED",
+          message: "Payment completed successfully",
+          transactionId,
+          merchantTransactionId,
+        })
+      } catch (error) {
+        console.error("Error processing successful payment:", error)
+        return NextResponse.json({
+          success: true,
+          status: "ERROR",
+          message: "Error processing successful payment",
+        })
+      }
+    } else if (paymentState === "FAILED" || paymentState === "CANCELLED") {
+      // Payment failed or was cancelled
+      console.log("Payment failed or cancelled:", paymentState, transactionId)
+
+      // Return a response indicating the payment failed
       return NextResponse.json({
-        success: true,
-        message: "Payment callback processed successfully",
+        success: true, // We still acknowledge the callback to PhonePe
+        status: paymentState,
+        message: `Payment ${paymentState.toLowerCase()}`,
+        transactionId,
+        merchantTransactionId,
       })
     } else {
-      // Payment failed or is pending
-      // Update your database accordingly
+      // Payment is in another state (e.g., PENDING)
+      console.log("Payment in state:", paymentState, transactionId)
 
-      // Return a success response to PhonePe (we still acknowledge the callback)
+      // Return a response with the current state
       return NextResponse.json({
         success: true,
-        message: "Payment callback processed successfully",
+        status: paymentState,
+        message: `Payment is ${paymentState.toLowerCase()}`,
+        transactionId,
+        merchantTransactionId,
       })
     }
   } catch (error) {

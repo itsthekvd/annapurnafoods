@@ -94,6 +94,11 @@ export default function PhonePePayment({ amount, customerInfo, onSuccess, onFail
           description: "You will be redirected to PhonePe to complete your payment.",
         })
 
+        // Store transaction ID in session storage for verification after redirect
+        if (typeof window !== "undefined" && window.sessionStorage) {
+          sessionStorage.setItem("phonePeTransactionId", response.data.merchantTransactionId)
+        }
+
         // In a real implementation, redirect to PhonePe's payment page
         window.location.href = response.data.redirectUrl
 
