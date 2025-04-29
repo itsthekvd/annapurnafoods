@@ -87,7 +87,14 @@ export default function OrderSummary() {
         <div className="border-t pt-3 space-y-3">
           <div className="flex justify-between">
             <span className="text-gray-600">Subtotal</span>
-            <span>₹{subtotal.toFixed(2)}</span>
+            {appliedCoupon ? (
+              <div className="text-right">
+                <span className="line-through text-gray-400">₹{originalSubtotal.toFixed(2)}</span>
+                <span className="ml-2 text-green-600">₹{subtotal.toFixed(2)}</span>
+              </div>
+            ) : (
+              <span>₹{subtotal.toFixed(2)}</span>
+            )}
           </div>
           <div className="flex justify-between">
             <span className="text-gray-600">Delivery Fee</span>
@@ -132,14 +139,21 @@ export default function OrderSummary() {
               <span>
                 {appliedCoupon.type === "special" && appliedCoupon.specialAction === "set_total_to_one"
                   ? `-₹${(originalSubtotal - 1).toFixed(2)}`
-                  : `-₹${(subtotal - (total - deliveryFee)).toFixed(2)}`}
+                  : `-₹${(originalSubtotal - subtotal).toFixed(2)}`}
               </span>
             </div>
           )}
           <div className="border-t pt-3 mt-3">
             <div className="flex justify-between font-semibold">
               <span>Total</span>
-              <span className="text-amber-700">₹{total.toFixed(2)}</span>
+              {appliedCoupon ? (
+                <div>
+                  <span className="line-through text-gray-400">₹{(originalSubtotal + deliveryFee).toFixed(2)}</span>
+                  <span className="ml-2 text-amber-700">₹{total.toFixed(2)}</span>
+                </div>
+              ) : (
+                <span className="text-amber-700">₹{total.toFixed(2)}</span>
+              )}
             </div>
           </div>
         </div>
