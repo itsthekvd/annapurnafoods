@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import Image from "next/image"
-import { motion, AnimatePresence } from "framer-motion"
 import { Star, ChevronLeft, ChevronRight } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -22,7 +21,7 @@ const reviews: Review[] = [
   {
     id: "1",
     name: "Rajesh Kumar",
-    avatar: "/placeholder.svg?height=100&width=100",
+    avatar: "/diverse-group-city.png",
     rating: 5,
     text: "The food is just like what we get at the Isha Yoga Center. Pure Sattvik and so fulfilling. I feel energized after every meal.",
     platform: "google",
@@ -31,7 +30,7 @@ const reviews: Review[] = [
   {
     id: "2",
     name: "Priya Sharma",
-    avatar: "/placeholder.svg?height=100&width=100",
+    avatar: "/diverse-group-city.png",
     rating: 5,
     text: "As a busy volunteer, I don't get time to cook. Annapurna Foods has been a blessing. The subscription plan is so convenient!",
     platform: "trustpilot",
@@ -40,7 +39,7 @@ const reviews: Review[] = [
   {
     id: "3",
     name: "Arun Patel",
-    avatar: "/placeholder.svg?height=100&width=100",
+    avatar: "/diverse-group-city.png",
     rating: 4,
     text: "The special health juices that come with the subscription are amazing. I can feel the difference in my energy levels.",
     platform: "justdial",
@@ -49,7 +48,7 @@ const reviews: Review[] = [
   {
     id: "4",
     name: "Meena Iyer",
-    avatar: "/placeholder.svg?height=100&width=100",
+    avatar: "/diverse-group-city.png",
     rating: 5,
     text: "I've tried many food delivery services, but Annapurna Foods stands out for its quality and taste. Truly authentic Sattvik food!",
     platform: "google",
@@ -58,7 +57,7 @@ const reviews: Review[] = [
   {
     id: "5",
     name: "Suresh Menon",
-    avatar: "/placeholder.svg?height=100&width=100",
+    avatar: "/diverse-group-city.png",
     rating: 5,
     text: "The Puran Poli is just like my mother used to make. Brings back childhood memories. Will order again!",
     platform: "yellowpages",
@@ -136,45 +135,30 @@ export default function ReviewsShowcase() {
             ))}
           </div>
           <div className="max-w-2xl mx-auto mb-8">
-            <iframe
-              width="100%"
-              height="166"
-              scrolling="no"
-              frameBorder="no"
-              allow="autoplay"
-              src="https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/tracks/1888122768"
-            ></iframe>
-            <div
-              style={{
-                fontSize: "10px",
-                color: "#cccccc",
-                lineBreak: "anywhere",
-                wordBreak: "normal",
-                overflow: "hidden",
-                whiteSpace: "nowrap",
-                textOverflow: "ellipsis",
-                fontFamily: "Interstate,Lucida Grande,Lucida Sans Unicode,Lucida Sans,Garuda,Verdana,Tahoma,sans-serif",
-                fontWeight: 100,
-              }}
-            >
-              <a
-                href="https://soundcloud.com/annapurnafood"
-                title="Annapurna Food"
-                target="_blank"
-                style={{ color: "#cccccc", textDecoration: "none" }}
-                rel="noreferrer"
-              >
-                Annapurna Food
-              </a>{" "}
-              ·{" "}
+            <div className="bg-gray-100 p-4 rounded-lg">
+              <h3 className="text-lg font-medium mb-2">Listen to our audio testimonials</h3>
+              <p className="text-sm text-gray-600 mb-2">Hear what our customers have to say about Annapurna Foods</p>
               <a
                 href="https://soundcloud.com/annapurnafood/heres-what-our-meditators-say"
-                title="Here's What Our Meditators Say"
                 target="_blank"
-                style={{ color: "#cccccc", textDecoration: "none" }}
                 rel="noreferrer"
+                className="text-amber-700 hover:text-amber-800 text-sm font-medium flex items-center"
               >
-                Here's What Our Meditators Say
+                <span>Listen on SoundCloud</span>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-4 w-4 ml-1"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                  />
+                </svg>
               </a>
             </div>
           </div>
@@ -192,62 +176,51 @@ export default function ReviewsShowcase() {
           </div>
 
           <div className="overflow-hidden">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={activeIndex}
-                initial={{ opacity: 0, x: 100 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -100 }}
-                transition={{ duration: 0.5 }}
-              >
-                <Card className="border-amber-200">
-                  <CardContent className="p-8">
-                    <div className="flex flex-col md:flex-row gap-6 items-start">
-                      <div className="flex-shrink-0">
-                        <div className="relative w-20 h-20 rounded-full overflow-hidden border-2 border-amber-200">
-                          <Image
-                            src={reviews[activeIndex].avatar || "/placeholder.svg"}
-                            alt={reviews[activeIndex].name}
-                            fill
-                            className="object-cover"
-                          />
-                        </div>
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4">
-                          <div>
-                            <h3 className="text-xl font-semibold">{reviews[activeIndex].name}</h3>
-                            <div className="flex items-center gap-2 mt-1">
-                              <div className="flex">
-                                {[...Array(5)].map((_, i) => (
-                                  <Star
-                                    key={i}
-                                    className={cn(
-                                      "h-4 w-4",
-                                      i < reviews[activeIndex].rating
-                                        ? "text-amber-500 fill-amber-500"
-                                        : "text-gray-300",
-                                    )}
-                                  />
-                                ))}
-                              </div>
-                              <Badge
-                                className={cn("text-xs", platformColors[reviews[activeIndex].platform])}
-                                variant="outline"
-                              >
-                                {platformNames[reviews[activeIndex].platform]}
-                              </Badge>
-                              <span className="text-sm text-gray-500">{reviews[activeIndex].date}</span>
-                            </div>
+            <Card className="border-amber-200">
+              <CardContent className="p-8">
+                <div className="flex flex-col md:flex-row gap-6 items-start">
+                  <div className="flex-shrink-0">
+                    <div className="relative w-20 h-20 rounded-full overflow-hidden border-2 border-amber-200">
+                      <Image
+                        src={reviews[activeIndex].avatar || "/placeholder.svg"}
+                        alt={reviews[activeIndex].name}
+                        width={80}
+                        height={80}
+                        className="object-cover"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4">
+                      <div>
+                        <h3 className="text-xl font-semibold">{reviews[activeIndex].name}</h3>
+                        <div className="flex items-center gap-2 mt-1">
+                          <div className="flex">
+                            {[...Array(5)].map((_, i) => (
+                              <Star
+                                key={i}
+                                className={cn(
+                                  "h-4 w-4",
+                                  i < reviews[activeIndex].rating ? "text-amber-500 fill-amber-500" : "text-gray-300",
+                                )}
+                              />
+                            ))}
                           </div>
+                          <Badge
+                            className={cn("text-xs", platformColors[reviews[activeIndex].platform])}
+                            variant="outline"
+                          >
+                            {platformNames[reviews[activeIndex].platform]}
+                          </Badge>
+                          <span className="text-sm text-gray-500">{reviews[activeIndex].date}</span>
                         </div>
-                        <p className="text-gray-700 text-lg italic">"{reviews[activeIndex].text}"</p>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            </AnimatePresence>
+                    <p className="text-gray-700 text-lg italic">"{reviews[activeIndex].text}"</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           <div className="absolute top-1/2 right-0 -translate-y-1/2 translate-x-1/2 z-10 md:translate-x-full">
