@@ -104,6 +104,24 @@ export default function AdminPage() {
         </Card>
       </div>
 
+      {/* New Coupon Management Card */}
+      <div className="mb-8">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg">Coupon Management</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-gray-500 mb-4">View and manage discount coupons</p>
+            <Button
+              onClick={() => router.push("/admin-secure-dashboard-a7x9z2p5/coupons")}
+              className="w-full bg-amber-700 hover:bg-amber-800"
+            >
+              Manage Coupons <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-lg">Website</CardTitle>

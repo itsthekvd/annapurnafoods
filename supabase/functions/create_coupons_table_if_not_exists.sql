@@ -1,4 +1,4 @@
--- Function to create coupons table if it doesn't exist
+-- Create a function to create the coupons table if it doesn't exist
 CREATE OR REPLACE FUNCTION create_coupons_table_if_not_exists()
 RETURNS void AS $$
 BEGIN
@@ -23,7 +23,7 @@ BEGIN
       created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
     );
     
-    -- Add comment
+    -- Add comment to the table
     COMMENT ON TABLE public.coupons IS 'Stores coupon codes and their details';
   END IF;
 END;
