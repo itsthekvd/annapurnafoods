@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -25,6 +25,7 @@ export default function ProductDetail({ product }: ProductDetailProps) {
   const [quantity, setQuantity] = useState(1)
   const [subscriptionOption, setSubscriptionOption] = useState(product.isSubscription ? "one-time" : "")
   const [recommendations, setRecommendations] = useState<Product[]>([])
+
   const router = useRouter()
   const { addItem } = useCart()
   const { appliedCoupon, calculateDiscountedPrice } = useCoupon()
@@ -40,22 +41,45 @@ export default function ProductDetail({ product }: ProductDetailProps) {
     setRecommendations(getRecommendationsForProduct(product.id))
   }, [product.id])
 
-  // Get the selected subscription option details
-  const selectedOption = subscriptionOptions.find((option) => option.id === subscriptionOption)
+  // Get the selected subscription option details with memoization
+  const selectedOption = useMemo(() => {
+    return subscriptionOptions.find((option) => option.id === subscriptionOption)
+  }, [subscriptionOption])
 
-  // Calculate prices
-  const originalTotalPrice = product.price * (selectedOption?.durationInDays || 1)
-  const discountedPrice = calculateDiscountedPrice(
-    product.price,
-    selectedOption?.durationInDays || 1,
-    selectedOption?.discountPercentage || 0,
-  )
+  // Calculate prices with memoization
+  const originalTotalPrice = useMemo(() => {
+    return product.price * (selectedOption?.durationInDays || 1)
+  }, [product.price, selectedOption?.durationInDays])
 
-  // Calculate savings
-  const totalSavings = originalTotalPrice - discountedPrice
-  const savingsPercentage = Math.round((totalSavings / originalTotalPrice) * 100)
+  const discountedPrice = useMemo(() => {
+    return calculateDiscountedPrice(
+      product.price,
+      selectedOption?.durationInDays || 1,
+      selectedOption?.discountPercentage || 0,
+    )
+  }, [product.price, selectedOption?.durationInDays, selectedOption?.discountPercentage, calculateDiscountedPrice])
 
-  const handleAddToCart = () => {
+  // Calculate savings with memoization
+  const totalSavings = useMemo(() => {
+    return originalTotalPrice - discountedPrice
+  }, [originalTotalPrice, discountedPrice])
+
+  const savingsPercentage = useMemo(() => {
+    return Math.round((totalSavings / originalTotalPrice) * 100)
+  }, [totalSavings, originalTotalPrice])
+
+  // Handle quantity change
+  const handleQuantityChange = useCallback((value: string) => {
+    setQuantity(Number.parseInt(value))
+  }, [])
+
+  // Handle subscription option change
+  const handleSubscriptionChange = useCallback((value: string) => {
+    setSubscriptionOption(value)
+  }, [])
+
+  // Handle add to cart
+  const handleAddToCart = useCallback(() => {
     if (product.isSubscription && subscriptionOption) {
       const option = subscriptionOptions.find((opt) => opt.id === subscriptionOption)
       addItem(product, 1, undefined, subscriptionOption, option?.durationInDays)
@@ -65,7 +89,128 @@ export default function ProductDetail({ product }: ProductDetailProps) {
 
     // Navigate to cart page
     router.push("/cart")
-  }
+  }, [product, subscriptionOption, quantity, addItem, router])
+
+  // Render subscription options section
+  const renderSubscriptionOptions = () => (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-2">Choose Your Plan</label>
+      <Select value={subscriptionOption} onValueChange={handleSubscriptionChange}>
+        <SelectTrigger className="w-full">
+          <SelectValue placeholder="Select a plan" />
+        </SelectTrigger>
+        <SelectContent>
+          {subscriptionOptions.map((option) => (
+            <SelectItem key={option.id} value={option.id}>
+              {option.name} {option.discountPercentage > 0 && `(${option.discountPercentage}% extra off)`}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      {selectedOption && (
+        <div className="mt-4">
+          <Card className="bg-amber-50 border-amber-100">
+            <CardContent className="pt-4 pb-4">
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-gray-700">Plan:</span>
+                  <span className="font-medium">{selectedOption.name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-700">Duration:</span>
+                  <span className="font-medium">{selectedOption.durationInDays} day(s)</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-700">Original Price:</span>
+                  <span className="font-medium">₹{originalTotalPrice.toFixed(2)}</span>
+                </div>
+                {appliedCoupon && (
+                  <div className="flex justify-between text-green-700">
+                    <span>Coupon Discount:</span>
+                    <span className="font-medium">
+                      -₹{(appliedCoupon.discount * (selectedOption.durationInDays || 1)).toFixed(2)}
+                    </span>
+                  </div>
+                )}
+                {selectedOption.discountPercentage > 0 && (
+                  <div className="flex justify-between text-amber-700">
+                    <span>Plan Discount ({selectedOption.discountPercentage}%):</span>
+                    <span className="font-medium">
+                      -₹{(originalTotalPrice * (selectedOption.discountPercentage / 100)).toFixed(2)}
+                    </span>
+                  </div>
+                )}
+                <div className="border-t pt-2 mt-2">
+                  <div className="flex justify-between font-bold">
+                    <span>Final Price:</span>
+                    <span className="text-amber-700">₹{discountedPrice.toFixed(2)}</span>
+                  </div>
+                </div>
+                {totalSavings > 0 && (
+                  <div className="bg-green-100 p-2 rounded-md text-center text-green-800 font-medium mt-2">
+                    You save ₹{totalSavings.toFixed(2)} ({savingsPercentage}%)
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+    </div>
+  )
+
+  // Render quantity selector section
+  const renderQuantitySelector = () => (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-2">Quantity</label>
+      <Select value={quantity.toString()} onValueChange={handleQuantityChange}>
+        <SelectTrigger className="w-full">
+          <SelectValue placeholder="Select quantity" />
+        </SelectTrigger>
+        <SelectContent>
+          {[1, 2, 3, 4, 5].map((num) => (
+            <SelectItem key={num} value={num.toString()}>
+              {num}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <div className="mt-4">
+        <Card className="bg-amber-50 border-amber-100">
+          <CardContent className="pt-4 pb-4">
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-gray-700">Original Price:</span>
+                <span className="font-medium">₹{(product.price * quantity).toFixed(2)}</span>
+              </div>
+              {appliedCoupon && (
+                <div className="flex justify-between text-green-700">
+                  <span>Coupon Discount:</span>
+                  <span className="font-medium">-₹{(appliedCoupon.discount * quantity).toFixed(2)}</span>
+                </div>
+              )}
+              <div className="border-t pt-2 mt-2">
+                <div className="flex justify-between font-bold">
+                  <span>Final Price:</span>
+                  <span className="text-amber-700">
+                    ₹{calculateDiscountedPrice(product.price, quantity).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+              {appliedCoupon && (
+                <div className="bg-green-100 p-2 rounded-md text-center text-green-800 font-medium mt-2">
+                  You save ₹{(appliedCoupon.discount * quantity).toFixed(2)} (
+                  {Math.round((appliedCoupon.discount / product.price) * 100)}%)
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  )
 
   return (
     <div className="container mx-auto px-4 py-12">
@@ -132,122 +277,7 @@ export default function ProductDetail({ product }: ProductDetailProps) {
           </Card>
 
           <div className="space-y-6">
-            {product.isSubscription ? (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Choose Your Plan</label>
-                <Select value={subscriptionOption} onValueChange={setSubscriptionOption}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select a plan" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {subscriptionOptions.map((option) => (
-                      <SelectItem key={option.id} value={option.id}>
-                        {option.name} {option.discountPercentage > 0 && `(${option.discountPercentage}% extra off)`}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                {selectedOption && (
-                  <div className="mt-4">
-                    <Card className="bg-amber-50 border-amber-100">
-                      <CardContent className="pt-4 pb-4">
-                        <div className="space-y-2">
-                          <div className="flex justify-between">
-                            <span className="text-gray-700">Plan:</span>
-                            <span className="font-medium">{selectedOption.name}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-700">Duration:</span>
-                            <span className="font-medium">{selectedOption.durationInDays} day(s)</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-700">Original Price:</span>
-                            <span className="font-medium">₹{originalTotalPrice.toFixed(2)}</span>
-                          </div>
-                          {appliedCoupon && (
-                            <div className="flex justify-between text-green-700">
-                              <span>Coupon Discount:</span>
-                              <span className="font-medium">
-                                -₹{(appliedCoupon.discount * (selectedOption.durationInDays || 1)).toFixed(2)}
-                              </span>
-                            </div>
-                          )}
-                          {selectedOption.discountPercentage > 0 && (
-                            <div className="flex justify-between text-amber-700">
-                              <span>Plan Discount ({selectedOption.discountPercentage}%):</span>
-                              <span className="font-medium">
-                                -₹{(originalTotalPrice * (selectedOption.discountPercentage / 100)).toFixed(2)}
-                              </span>
-                            </div>
-                          )}
-                          <div className="border-t pt-2 mt-2">
-                            <div className="flex justify-between font-bold">
-                              <span>Final Price:</span>
-                              <span className="text-amber-700">₹{discountedPrice.toFixed(2)}</span>
-                            </div>
-                          </div>
-                          {totalSavings > 0 && (
-                            <div className="bg-green-100 p-2 rounded-md text-center text-green-800 font-medium mt-2">
-                              You save ₹{totalSavings.toFixed(2)} ({savingsPercentage}%)
-                            </div>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Quantity</label>
-                <Select value={quantity.toString()} onValueChange={(value) => setQuantity(Number.parseInt(value))}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select quantity" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {[1, 2, 3, 4, 5].map((num) => (
-                      <SelectItem key={num} value={num.toString()}>
-                        {num}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <div className="mt-4">
-                  <Card className="bg-amber-50 border-amber-100">
-                    <CardContent className="pt-4 pb-4">
-                      <div className="space-y-2">
-                        <div className="flex justify-between">
-                          <span className="text-gray-700">Original Price:</span>
-                          <span className="font-medium">₹{(product.price * quantity).toFixed(2)}</span>
-                        </div>
-                        {appliedCoupon && (
-                          <div className="flex justify-between text-green-700">
-                            <span>Coupon Discount:</span>
-                            <span className="font-medium">-₹{(appliedCoupon.discount * quantity).toFixed(2)}</span>
-                          </div>
-                        )}
-                        <div className="border-t pt-2 mt-2">
-                          <div className="flex justify-between font-bold">
-                            <span>Final Price:</span>
-                            <span className="text-amber-700">
-                              ₹{calculateDiscountedPrice(product.price, quantity).toFixed(2)}
-                            </span>
-                          </div>
-                        </div>
-                        {appliedCoupon && (
-                          <div className="bg-green-100 p-2 rounded-md text-center text-green-800 font-medium mt-2">
-                            You save ₹{(appliedCoupon.discount * quantity).toFixed(2)} (
-                            {Math.round((appliedCoupon.discount / product.price) * 100)}%)
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </div>
-            )}
+            {product.isSubscription ? renderSubscriptionOptions() : renderQuantitySelector()}
 
             <Button
               onClick={handleAddToCart}

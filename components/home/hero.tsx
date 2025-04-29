@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { DigitCounter } from "@/components/ui/counter-animation"
 import HealthImpactStats from "@/components/home/health-impact-stats"
 import OrderStorage from "@/lib/order-storage"
@@ -12,7 +12,7 @@ export default function Hero() {
 
   // Fetch total meals from orders
   useEffect(() => {
-    async function fetchTotalMeals() {
+    const fetchTotalMeals = async () => {
       try {
         // Get all orders
         const orders = await OrderStorage.getAllOrders()
@@ -56,26 +56,38 @@ export default function Hero() {
     fetchTotalMeals()
   }, [])
 
+  // Render loading state
+  const renderLoadingState = useCallback(
+    () => (
+      <div className="h-24 flex items-center justify-center">
+        <div className="animate-pulse bg-amber-200 h-12 w-64 rounded-lg mx-auto"></div>
+      </div>
+    ),
+    [],
+  )
+
+  // Render meal counter
+  const renderMealCounter = useCallback(
+    () => (
+      <div className="mb-4">
+        <h1 className="text-4xl md:text-5xl font-bold text-amber-800 mb-2">
+          <DigitCounter value={totalMeals} className="inline-flex" />
+          <span className="ml-2">Sattvik Healthy Meals Delivered</span>
+        </h1>
+        <p className="text-xl text-amber-700 font-medium">
+          within 10kms radius of Isha Yoga Center, Coimbatore.. Order your tiffin now.
+        </p>
+      </div>
+    ),
+    [totalMeals],
+  )
+
   return (
     <section className="relative bg-amber-50 py-12 md:py-16">
       <div className="container mx-auto px-4">
         <div className="grid grid-cols-1 gap-8">
           <div className="text-center">
-            {isLoading ? (
-              <div className="h-24 flex items-center justify-center">
-                <div className="animate-pulse bg-amber-200 h-12 w-64 rounded-lg mx-auto"></div>
-              </div>
-            ) : (
-              <div className="mb-4">
-                <h1 className="text-4xl md:text-5xl font-bold text-amber-800 mb-2">
-                  <DigitCounter value={totalMeals} className="inline-flex" />
-                  <span className="ml-2">Sattvik Healthy Meals Delivered</span>
-                </h1>
-                <p className="text-xl text-amber-700 font-medium">
-                  within 10kms radius of Isha Yoga Center, Coimbatore.. Order your tiffin now.
-                </p>
-              </div>
-            )}
+            {isLoading ? renderLoadingState() : renderMealCounter()}
 
             <div className="relative mt-8 bg-amber-800 text-white py-6 px-4 rounded-lg shadow-lg max-w-2xl mx-auto">
               <h2 className="text-xl md:text-2xl font-semibold mb-2">Our Health Impact</h2>

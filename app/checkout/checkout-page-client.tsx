@@ -1,8 +1,7 @@
 "use client"
 
 import type React from "react"
-
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -26,16 +25,44 @@ import { useMobile } from "@/hooks/use-mobile"
 import OrderStorage from "@/lib/order-storage"
 import { useCoupon } from "@/contexts/coupon-context"
 import { CouponInput } from "@/components/checkout/coupon-input"
+import type { CartItem } from "@/contexts/cart-context"
 
 // Define checkout steps
 const STEPS = {
   CONTACT: 0,
   LOCATION: 1,
   PAYMENT: 2,
+} as const
+
+type CheckoutStep = (typeof STEPS)[keyof typeof STEPS]
+
+// Types for location info
+interface LocationInfo {
+  address: string
+  lat: number
+  lng: number
+  mapUrl: string
 }
 
-// Replace the entire GoogleMapsUrlInput component with this simplified version:
-function GoogleMapsUrlInput({ onLocationSelect, defaultLocation }: any) {
+// Types for customer info
+interface CustomerInfo {
+  name: string
+  email: string
+  phone: string
+  notes: string
+  zipcode: string
+  voiceNote?: Blob
+  hasVoiceNote?: boolean
+}
+
+// Google Maps URL Input Component
+function GoogleMapsUrlInput({
+  onLocationSelect,
+  defaultLocation,
+}: {
+  onLocationSelect: (location: LocationInfo) => void
+  defaultLocation?: LocationInfo
+}) {
   const [mapUrl, setMapUrl] = useState(defaultLocation?.mapUrl || "")
   const [isValid, setIsValid] = useState(true)
   const initialLoadRef = useRef(true)
@@ -62,39 +89,42 @@ function GoogleMapsUrlInput({ onLocationSelect, defaultLocation }: any) {
           onLocationSelect(parsedInfo)
         }
       }
-      initialLoadRef.current = false
     } catch (error) {
       console.error("Failed to load saved location info:", error)
+    } finally {
       initialLoadRef.current = false
     }
   }, [onLocationSelect])
 
   // Validate and save the URL as the user types
-  const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const url = e.target.value
-    setMapUrl(url)
+  const handleUrlChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const url = e.target.value
+      setMapUrl(url)
 
-    // Basic validation - check if it looks like a Google Maps URL
-    const isGoogleMapsUrl =
-      url.includes("maps.app.goo.gl") || url.includes("goo.gl/maps") || url.includes("google.com/maps")
+      // Basic validation - check if it looks like a Google Maps URL
+      const isGoogleMapsUrl =
+        url.includes("maps.app.goo.gl") || url.includes("goo.gl/maps") || url.includes("google.com/maps")
 
-    setIsValid(url === "" || isGoogleMapsUrl)
+      setIsValid(url === "" || isGoogleMapsUrl)
 
-    // If valid, update the parent component with the URL
-    if (isGoogleMapsUrl) {
-      const locationInfo = {
-        address: "Delivery location from Google Maps URL",
-        lat: 11.0168, // Default coordinates for Isha area
-        lng: 76.9558,
-        mapUrl: url,
+      // If valid, update the parent component with the URL
+      if (isGoogleMapsUrl) {
+        const locationInfo = {
+          address: "Delivery location from Google Maps URL",
+          lat: 11.0168, // Default coordinates for Isha area
+          lng: 76.9558,
+          mapUrl: url,
+        }
+
+        onLocationSelect(locationInfo)
+
+        // Save to localStorage
+        localStorage.setItem("annapurna-location-info", JSON.stringify(locationInfo))
       }
-
-      onLocationSelect(locationInfo)
-
-      // Save to localStorage
-      localStorage.setItem("annapurna-location-info", JSON.stringify(locationInfo))
-    }
-  }
+    },
+    [onLocationSelect],
+  )
 
   return (
     <div className="space-y-4">
@@ -132,36 +162,311 @@ function GoogleMapsUrlInput({ onLocationSelect, defaultLocation }: any) {
   )
 }
 
+// Section Header Component
+function SectionHeader({
+  step,
+  title,
+  icon,
+  isCompleted,
+  isExpanded,
+  onClick,
+  sectionRef,
+}: {
+  step: CheckoutStep
+  title: string
+  icon: React.ReactNode
+  isCompleted: boolean
+  isExpanded: boolean
+  onClick: () => void
+  sectionRef: React.RefObject<HTMLDivElement>
+}) {
+  const isActive = isExpanded || isCompleted
+
+  return (
+    <div
+      ref={sectionRef}
+      className={`flex items-center p-4 cursor-pointer ${isActive ? "bg-white" : "bg-gray-50"}`}
+      onClick={onClick}
+    >
+      <div
+        className={`w-10 h-10 rounded-full flex items-center justify-center mr-3 ${
+          isCompleted ? "bg-green-500 text-white" : isExpanded ? "bg-amber-700 text-white" : "bg-gray-200 text-gray-500"
+        }`}
+      >
+        {isCompleted ? <CheckCircle className="h-5 w-5" /> : icon}
+      </div>
+      <div className="flex-1">
+        <div className="flex items-center justify-between">
+          <span className="font-medium">{title}</span>
+          {!isExpanded && <ChevronDown className="h-4 w-4 text-gray-500" />}
+        </div>
+        {isExpanded && <div className="h-1 bg-amber-700 rounded-full mt-1 w-full"></div>}
+        {isCompleted && !isExpanded && (
+          <div className="text-sm text-green-600 flex items-center mt-1">
+            <CheckCircle className="h-3 w-3 mr-1" /> Completed
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Contact Form Component
+function ContactForm({
+  customerInfo,
+  zipcodeValidation,
+  handleInputChange,
+  onComplete,
+}: {
+  customerInfo: CustomerInfo
+  zipcodeValidation: { valid: boolean; message: string } | null
+  handleInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void
+  onComplete: () => void
+}) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <Label htmlFor="name">Full Name *</Label>
+        <Input
+          id="name"
+          placeholder="Your full name"
+          required
+          className="mt-1"
+          value={customerInfo.name}
+          onChange={handleInputChange}
+        />
+      </div>
+      <div>
+        <Label htmlFor="phone">WhatsApp Number *</Label>
+        <Input
+          id="phone"
+          placeholder="Your WhatsApp number"
+          required
+          className="mt-1"
+          value={customerInfo.phone}
+          onChange={handleInputChange}
+        />
+      </div>
+      <div>
+        <Label htmlFor="email">Email *</Label>
+        <Input
+          id="email"
+          type="email"
+          placeholder="Your email address"
+          required
+          className="mt-1"
+          value={customerInfo.email}
+          onChange={handleInputChange}
+        />
+      </div>
+      <div>
+        <Label htmlFor="zipcode">Pincode/Zipcode *</Label>
+        <Input
+          id="zipcode"
+          placeholder="Enter your pincode"
+          required
+          className={`mt-1 ${zipcodeValidation && !zipcodeValidation.valid ? "border-red-500" : ""}`}
+          value={customerInfo.zipcode}
+          onChange={handleInputChange}
+        />
+        {zipcodeValidation && (
+          <p className={`text-xs mt-1 ${zipcodeValidation.valid ? "text-green-600" : "text-red-500"}`}>
+            {zipcodeValidation.message}
+          </p>
+        )}
+      </div>
+      <Button onClick={onComplete} className="w-full bg-amber-700 hover:bg-amber-800">
+        Continue
+        <ChevronRight className="ml-2 h-4 w-4" />
+      </Button>
+    </div>
+  )
+}
+
+// Location Form Component
+function LocationForm({
+  locationInfo,
+  customerInfo,
+  deliveryDate,
+  mealType,
+  hasSubscription,
+  onLocationSelect,
+  onVoiceNoteComplete,
+  onVoiceNoteClear,
+  onDateSelected,
+  onBack,
+  onComplete,
+}: {
+  locationInfo: LocationInfo
+  customerInfo: CustomerInfo
+  deliveryDate: Date | null
+  mealType: string
+  hasSubscription: boolean
+  onLocationSelect: (location: LocationInfo) => void
+  onVoiceNoteComplete: (blob: Blob) => void
+  onVoiceNoteClear: () => void
+  onDateSelected: (date: Date) => void
+  onBack: () => void
+  onComplete: () => void
+}) {
+  return (
+    <div>
+      <GoogleMapsUrlInput onLocationSelect={onLocationSelect} defaultLocation={locationInfo} />
+      <div className="mt-4">
+        <Label>Delivery Instructions (Voice Note)</Label>
+        <VoiceNoteRecorder
+          onRecordingComplete={onVoiceNoteComplete}
+          onRecordingClear={onVoiceNoteClear}
+          existingRecording={customerInfo.voiceNote}
+        />
+        <div className="mt-6">
+          <Label>Delivery Date</Label>
+          <DeliveryDateSelector
+            mealType={mealType === "brunch" ? "brunch" : "dinner"}
+            isSubscription={hasSubscription}
+            onDateSelected={onDateSelected}
+            defaultDate={deliveryDate}
+          />
+        </div>
+        <div className="flex justify-between mt-4">
+          <Button variant="outline" onClick={onBack} className="border-amber-700 text-amber-700">
+            <ChevronLeft className="mr-2 h-4 w-4" />
+            Back
+          </Button>
+          <Button onClick={onComplete} className="bg-amber-700 hover:bg-amber-800">
+            Continue
+            <ChevronRight className="ml-2 h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Payment Form Component
+function PaymentForm({
+  paymentMethod,
+  onPaymentMethodChange,
+  onBack,
+  customerInfo,
+  locationInfo,
+  total,
+  handlePaymentSuccess,
+  handlePaymentFailure,
+}: {
+  paymentMethod: string
+  onPaymentMethodChange: (value: string) => void
+  onBack: () => void
+  customerInfo: CustomerInfo
+  locationInfo: LocationInfo
+  total: number
+  handlePaymentSuccess: (paymentId: string, orderId: string) => void
+  handlePaymentFailure: (error: any) => void
+}) {
+  return (
+    <div>
+      <div className="mb-6">
+        <h3 className="font-medium mb-3">Have a coupon code?</h3>
+        <CouponInput />
+      </div>
+
+      <RadioGroup value={paymentMethod} onValueChange={onPaymentMethodChange} className="space-y-3">
+        <div
+          className="flex items-center space-x-2 border p-4 rounded-lg hover:bg-amber-100 cursor-pointer"
+          onClick={() => onPaymentMethodChange("razorpay")}
+        >
+          <RadioGroupItem value="razorpay" id="razorpay" />
+          <Label htmlFor="razorpay" className="flex-1 cursor-pointer">
+            <div className="font-medium">Pay with Razorpay</div>
+            <div className="text-sm text-gray-600">Pay securely with credit/debit card, UPI, or net banking</div>
+          </Label>
+          <div className="w-24 h-10 relative">
+            <Image
+              src="/images/razorpay-logo.png"
+              alt="Razorpay"
+              fill
+              className="object-contain"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement
+                target.src =
+                  "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/razorpay%20brand%20logo-A7IwYxfloeVtK0E9V8JjS80lq3xDWL.png"
+              }}
+            />
+          </div>
+        </div>
+      </RadioGroup>
+
+      <div className="flex justify-between mt-4">
+        <Button variant="outline" onClick={onBack} className="border-amber-700 text-amber-700">
+          <ChevronLeft className="mr-2 h-4 w-4" />
+          Back
+        </Button>
+      </div>
+
+      <div className="w-full space-y-4 mt-4">
+        {paymentMethod === "razorpay" && (
+          <RazorpayPayment
+            amount={total}
+            customerInfo={{
+              name: customerInfo.name,
+              email: customerInfo.email || "customer@example.com",
+              phone: customerInfo.phone,
+              address: locationInfo.address,
+            }}
+            onSuccess={handlePaymentSuccess}
+            onFailure={handlePaymentFailure}
+            className="mb-4"
+          />
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Loading Spinner Component
+function LoadingSpinner() {
+  return (
+    <div className="container mx-auto px-4 py-12 flex items-center justify-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-amber-700"></div>
+      <p className="ml-3 text-amber-700">Loading your cart...</p>
+    </div>
+  )
+}
+
+// Empty Cart Component
+function EmptyCart() {
+  return (
+    <div className="container mx-auto px-4 py-12 flex flex-col items-center justify-center">
+      <div className="text-center mb-8">
+        <h2 className="text-2xl font-bold text-amber-800 mb-4">Your cart is empty</h2>
+        <p className="text-gray-600 mb-6">Please add some items to your cart before proceeding to checkout.</p>
+        <Button onClick={() => (window.location.href = "/menu")} className="bg-amber-700 hover:bg-amber-800">
+          Browse Menu
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+// Main Checkout Component
 export default function CheckoutPageClient() {
   const router = useRouter()
   const { toast } = useToast()
   const { items, subtotal, deliveryFee, total, clearCart, updateSubscription, orderId, updateDeliveryFee } = useCart()
-  const [expandedSection, setExpandedSection] = useState(STEPS.CONTACT)
-  const [completedSections, setCompletedSections] = useState<number[]>([])
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [paymentMethod, setPaymentMethod] = useState(() => {
-    // Load saved payment method from localStorage
-    if (typeof window !== "undefined") {
-      const savedMethod = localStorage.getItem("annapurna-payment-method")
-      // Only return "razorpay" regardless of what's saved
-      return "razorpay"
-    }
-    return "razorpay"
-  })
+  const [expandedSection, setExpandedSection] = useState<CheckoutStep>(STEPS.CONTACT)
+  const [completedSections, setCompletedSections] = useState<CheckoutStep[]>([])
+  const [paymentMethod, setPaymentMethod] = useState("razorpay")
   const [upsellProducts, setUpsellProducts] = useState<any[]>([])
   const [hasSubscription, setHasSubscription] = useState(false)
   const [mealType, setMealType] = useState("")
   const { trackCheckoutStep, updateOrderStatus, updateOrder, identifyUser } = useTracking()
   const isMobile = useMobile()
 
-  // Add state to track if we've loaded cart from localStorage
+  // Cart loading states
   const [hasLoadedFromStorage, setHasLoadedFromStorage] = useState(false)
-  // Add state to track if we're showing loading state
   const [isLoadingCart, setIsLoadingCart] = useState(true)
-  // Add state to track if we should redirect
   const [shouldRedirect, setShouldRedirect] = useState(false)
-  // Add state to store cart items from localStorage
-  const [localStorageItems, setLocalStorageItems] = useState<any[]>([])
+  const [localStorageItems, setLocalStorageItems] = useState<CartItem[]>([])
 
   // Refs for scrolling to sections
   const sectionRefs = {
@@ -171,29 +476,27 @@ export default function CheckoutPageClient() {
   }
 
   // Customer information state
-  const [customerInfo, setCustomerInfo] = useState({
+  const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
     name: "",
     email: "",
     phone: "",
     notes: "",
     zipcode: "",
-    voiceNote: undefined as Blob | undefined,
   })
 
-  // Add a state for zipcode validation
+  // Zipcode validation state
   const [zipcodeValidation, setZipcodeValidation] = useState<{ valid: boolean; message: string } | null>(null)
 
-  // Also update the locationInfo state to include mapUrl:
-  const [locationInfo, setLocationInfo] = useState({
+  // Location info state
+  const [locationInfo, setLocationInfo] = useState<LocationInfo>({
     address: "",
     lat: 0,
     lng: 0,
     mapUrl: "",
   })
 
-  // Add a new state for the delivery date
+  // Delivery date state
   const [deliveryDate, setDeliveryDate] = useState<Date | null>(() => {
-    // Try to load from localStorage
     if (typeof window !== "undefined") {
       const savedDate = localStorage.getItem("annapurna-delivery-date")
       return savedDate ? new Date(savedDate) : null
@@ -201,29 +504,22 @@ export default function CheckoutPageClient() {
     return null
   })
 
-  // Initialize the coupon context
+  // Coupon context
   const couponContext = useCoupon()
-
-  // Add this line after other context hooks
   const { appliedCoupon } = useCoupon()
 
-  // First, load cart from localStorage directly
+  // Load cart from localStorage
   useEffect(() => {
     const loadCartFromStorage = () => {
       try {
         const savedCart = localStorage.getItem("annapurna-cart")
-        console.log("Checking localStorage cart:", savedCart)
+        if (!savedCart) return
 
-        if (savedCart) {
-          const parsedCart = JSON.parse(savedCart)
-          if (Array.isArray(parsedCart)) {
-            setLocalStorageItems(parsedCart)
-            console.log("Loaded cart from localStorage:", parsedCart)
-
-            // If we have items in localStorage but not in context, we'll use these
-            if (parsedCart.length > 0) {
-              setHasLoadedFromStorage(true)
-            }
+        const parsedCart = JSON.parse(savedCart)
+        if (Array.isArray(parsedCart)) {
+          setLocalStorageItems(parsedCart)
+          if (parsedCart.length > 0) {
+            setHasLoadedFromStorage(true)
           }
         }
       } catch (error) {
@@ -232,43 +528,46 @@ export default function CheckoutPageClient() {
     }
 
     loadCartFromStorage()
-    // Empty dependency array to ensure this only runs once on mount
   }, [])
 
-  // Load saved customer info from localStorage
+  // Load customer info from localStorage
   useEffect(() => {
-    try {
-      const savedCustomerInfo = localStorage.getItem("annapurna-customer-info")
-      if (savedCustomerInfo) {
-        const parsedInfo = JSON.parse(savedCustomerInfo)
-        setCustomerInfo((prev) => ({
-          ...prev,
-          name: parsedInfo.name || "",
-          email: parsedInfo.email || "",
-          phone: parsedInfo.phone || "",
-          zipcode: parsedInfo.zipcode || "",
-          notes: parsedInfo.notes || "",
-        }))
-      }
+    const loadCustomerInfo = () => {
+      try {
+        // Load customer info
+        const savedCustomerInfo = localStorage.getItem("annapurna-customer-info")
+        if (savedCustomerInfo) {
+          const parsedInfo = JSON.parse(savedCustomerInfo)
+          setCustomerInfo((prev) => ({
+            ...prev,
+            name: parsedInfo.name || "",
+            email: parsedInfo.email || "",
+            phone: parsedInfo.phone || "",
+            zipcode: parsedInfo.zipcode || "",
+            notes: parsedInfo.notes || "",
+          }))
+        }
 
-      const savedLocationInfo = localStorage.getItem("annapurna-location-info")
-      if (savedLocationInfo) {
-        setLocationInfo(JSON.parse(savedLocationInfo))
-      }
+        // Load location info
+        const savedLocationInfo = localStorage.getItem("annapurna-location-info")
+        if (savedLocationInfo) {
+          setLocationInfo(JSON.parse(savedLocationInfo))
+        }
 
-      // Try to load voice note from sessionStorage (since localStorage can't store blobs)
-      const savedVoiceNote = sessionStorage.getItem("annapurna-voice-note")
-      if (savedVoiceNote === "true") {
-        // We just store a flag indicating there is a voice note
-        // The actual blob is handled by the VoiceNoteRecorder component
-        setCustomerInfo((prev) => ({
-          ...prev,
-          hasVoiceNote: true,
-        }))
+        // Load voice note flag
+        const savedVoiceNote = sessionStorage.getItem("annapurna-voice-note")
+        if (savedVoiceNote === "true") {
+          setCustomerInfo((prev) => ({
+            ...prev,
+            hasVoiceNote: true,
+          }))
+        }
+      } catch (error) {
+        console.error("Failed to load saved customer info:", error)
       }
-    } catch (error) {
-      console.error("Failed to load saved customer info:", error)
     }
+
+    loadCustomerInfo()
   }, [])
 
   // Track checkout started
@@ -277,62 +576,48 @@ export default function CheckoutPageClient() {
       updateOrderStatus(orderId, "checkout_started")
       trackCheckoutStep(0, orderId, { items, total })
     }
-  }, [orderId])
+  }, [orderId, items, total, trackCheckoutStep, updateOrderStatus])
 
-  // CRITICAL: Modify the redirect logic to be more robust
+  // Handle cart redirect logic
   useEffect(() => {
-    // Only check after a delay to ensure cart has time to load
     const timer = setTimeout(() => {
-      // First check if we're still loading
       if (isLoadingCart) {
         setIsLoadingCart(false)
         return
       }
 
-      // Check if we have items in context or localStorage
       const hasItemsInContext = items.length > 0
       const hasItemsInStorage = localStorageItems.length > 0
 
-      console.log("Cart check (delayed):", {
-        hasItemsInContext,
-        hasItemsInStorage,
-        contextItems: items,
-        storageItems: localStorageItems,
-      })
-
-      // Only redirect if both are empty AND we've already tried to load from storage
       if (!hasItemsInContext && !hasItemsInStorage && hasLoadedFromStorage) {
-        console.log("Both context and localStorage are empty, redirecting to cart")
         setShouldRedirect(true)
       } else {
-        // We have items, so we're good to stay on the checkout page
         setIsLoadingCart(false)
       }
-    }, 1000) // Wait 1 second to check
+    }, 1000)
 
     return () => clearTimeout(timer)
   }, [items, localStorageItems, hasLoadedFromStorage, isLoadingCart])
 
-  // Handle the actual redirect
+  // Handle redirect
   useEffect(() => {
     if (shouldRedirect) {
-      console.log("Redirecting to cart page")
       window.location.href = "/cart"
     }
   }, [shouldRedirect])
 
-  // Check if cart has subscription items and determine meal type
+  // Determine meal type and subscription status
   useEffect(() => {
-    // Use either context items or localStorage items
     const itemsToUse = items.length > 0 ? items : localStorageItems
     if (itemsToUse.length === 0) return
 
+    // Check for subscription items
     const hasSubscriptionItem = itemsToUse.some(
       (item) => item.subscriptionOption && item.subscriptionOption !== "one-time",
     )
     setHasSubscription(hasSubscriptionItem)
 
-    // Determine meal type (brunch or dinner)
+    // Determine meal type
     const brunchItem = itemsToUse.find((item) => item.product?.id === "brunch")
     const dinnerItem = itemsToUse.find((item) => item.product?.id === "dinner")
 
@@ -342,31 +627,28 @@ export default function CheckoutPageClient() {
       setMealType("dinner")
     }
 
-    // Get upsell products based on subscription status and meal type
+    // Get upsell products
     const type = brunchItem ? "brunch" : "dinner"
     setUpsellProducts(getUpsellProducts(hasSubscriptionItem, type))
   }, [items, localStorageItems])
 
-  // Store cart items in session storage for PhonePe callback
+  // Store cart items in session storage
   useEffect(() => {
-    // Use either context items or localStorage items
     const itemsToUse = items.length > 0 ? items : localStorageItems
-
     if (itemsToUse.length > 0) {
       sessionStorage.setItem("cartItems", JSON.stringify(itemsToUse))
     }
   }, [items, localStorageItems])
 
-  // Store location info in session storage for PhonePe callback
+  // Store location info
   useEffect(() => {
     if (locationInfo.address) {
       sessionStorage.setItem("locationInfo", JSON.stringify(locationInfo))
-      // Also save to localStorage for persistence
       localStorage.setItem("annapurna-location-info", JSON.stringify(locationInfo))
     }
   }, [locationInfo])
 
-  // Store delivery date in localStorage when it changes
+  // Store delivery date
   useEffect(() => {
     if (deliveryDate) {
       localStorage.setItem("annapurna-delivery-date", deliveryDate.toISOString())
@@ -374,13 +656,7 @@ export default function CheckoutPageClient() {
     }
   }, [deliveryDate])
 
-  // Initialize the coupon context
-  //const coupon = useCoupon()
-
-  // Add this line after other context hooks
-  //const { appliedCoupon } = useCoupon()
-
-  // Scroll to expanded section when it changes
+  // Scroll to expanded section
   useEffect(() => {
     if (isMobile && sectionRefs[expandedSection]?.current) {
       setTimeout(() => {
@@ -389,13 +665,11 @@ export default function CheckoutPageClient() {
     }
   }, [expandedSection, isMobile])
 
-  // Sync subscription durations when cart changes
+  // Sync subscription durations
   useEffect(() => {
-    // Use either context items or localStorage items
     const itemsToUse = items.length > 0 ? items : localStorageItems
     if (itemsToUse.length === 0 || !updateSubscription) return
 
-    // Find meal subscription (brunch or dinner)
     const mealSub = itemsToUse.find(
       (item) =>
         (item.product?.id === "brunch" || item.product?.id === "dinner") &&
@@ -403,20 +677,17 @@ export default function CheckoutPageClient() {
         item.subscriptionOption !== "one-time",
     )
 
-    // Find sweets subscription
     const sweetsSub = itemsToUse.find(
       (item) =>
         item.product?.id === "sweets-subscription" && item.subscriptionOption && item.subscriptionOption !== "one-time",
     )
 
-    // If both exist but have different subscription options/days, update sweets to match meal
     if (
       mealSub &&
       sweetsSub &&
       (mealSub.subscriptionOption !== sweetsSub.subscriptionOption ||
         mealSub.subscriptionDays !== sweetsSub.subscriptionDays)
     ) {
-      // Update sweets subscription to match meal subscription
       updateSubscription(
         "sweets-subscription",
         mealSub.subscriptionOption || "monthly-1",
@@ -425,9 +696,8 @@ export default function CheckoutPageClient() {
     }
   }, [items, localStorageItems, updateSubscription])
 
-  // Add this effect to reset payment method if needed for subscription orders
+  // Reset payment method for subscription orders
   useEffect(() => {
-    // If user has subscription items but has selected COD, change to Razorpay
     if (hasSubscription && paymentMethod === "cod") {
       setPaymentMethod("razorpay")
       localStorage.setItem("annapurna-payment-method", "razorpay")
@@ -446,388 +716,405 @@ export default function CheckoutPageClient() {
     }
   }, [hasSubscription, paymentMethod, orderId, updateOrder, trackCheckoutStep])
 
-  // Handle input change and identify user
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { id, value } = e.target
-    setCustomerInfo((prev) => {
-      const updated = {
-        ...prev,
-        [id]: value,
+  // Handle input change
+  const handleInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      const { id, value } = e.target
+      setCustomerInfo((prev) => {
+        const updated = { ...prev, [id]: value }
+        localStorage.setItem("annapurna-customer-info", JSON.stringify(updated))
+        return updated
+      })
+
+      // Update delivery fee when zipcode changes
+      if (id === "zipcode" && value.length === 6) {
+        const validationResult = updateDeliveryFee(value)
+        setZipcodeValidation(validationResult)
       }
+    },
+    [updateDeliveryFee],
+  )
 
-      // Save to localStorage for persistence
-      localStorage.setItem("annapurna-customer-info", JSON.stringify(updated))
-
-      return updated
-    })
-
-    // Update delivery fee when zipcode changes
-    if (id === "zipcode" && value.length === 6) {
-      const validationResult = updateDeliveryFee(value)
-
-      // Store the validation result for display
-      setZipcodeValidation(validationResult)
-    }
-  }
-
-  const handleLocationSelect = (location: { address: string; lat: number; lng: number; mapUrl?: string }) => {
+  // Handle location selection
+  const handleLocationSelect = useCallback((location: LocationInfo) => {
     setLocationInfo(location)
-    // Save to localStorage
     localStorage.setItem("annapurna-location-info", JSON.stringify(location))
-  }
+  }, [])
 
   // Toggle section expansion
-  const toggleSection = (section: number) => {
-    if (expandedSection === section) {
-      // If clicking on already expanded section, do nothing
-      return
-    }
+  const toggleSection = useCallback(
+    (section: CheckoutStep) => {
+      if (expandedSection === section) return
 
-    // If trying to access a section that's not completed and not the next one
-    if (!completedSections.includes(section) && section !== expandedSection + 1 && section !== 0) {
+      if (!completedSections.includes(section) && section !== expandedSection + 1 && section !== 0) {
+        toast({
+          title: "Complete previous sections first",
+          description: "Please complete the previous sections before proceeding.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      setExpandedSection(section)
+    },
+    [expandedSection, completedSections, toast],
+  )
+
+  // Validate contact section
+  const validateContactSection = useCallback(() => {
+    if (!customerInfo.name || !customerInfo.phone || !customerInfo.email || !customerInfo.zipcode) {
       toast({
-        title: "Complete previous sections first",
-        description: "Please complete the previous sections before proceeding.",
+        title: "Missing information",
+        description: "Please fill in all required fields.",
         variant: "destructive",
       })
-      return
+      return false
     }
 
-    setExpandedSection(section)
-  }
-
-  // Complete current section and move to next
-  const completeSection = () => {
-    // Validate current section
-    if (expandedSection === STEPS.CONTACT) {
-      if (!customerInfo.name || !customerInfo.phone || !customerInfo.email || !customerInfo.zipcode) {
-        toast({
-          title: "Missing information",
-          description: "Please fill in all required fields.",
-          variant: "destructive",
-        })
-        return
-      }
-
-      // Validate email format
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-      if (!emailRegex.test(customerInfo.email)) {
-        toast({
-          title: "Invalid email",
-          description: "Please enter a valid email address.",
-          variant: "destructive",
-        })
-        return
-      }
-
-      // Validate zipcode format (6 digits for Indian pincodes)
-      if (!/^\d{6}$/.test(customerInfo.zipcode)) {
-        toast({
-          title: "Invalid pincode",
-          description: "Please enter a valid 6-digit pincode.",
-          variant: "destructive",
-        })
-        return
-      }
-
-      // Check if delivery is available to this pincode
-      const validationResult = updateDeliveryFee(customerInfo.zipcode)
-      if (!validationResult.valid) {
-        toast({
-          title: "Delivery not available",
-          description: validationResult.message,
-          variant: "destructive",
-        })
-        return
-      }
-
-      // Identify user and update order with contact info
-      identifyUser({
-        name: customerInfo.name,
-        email: customerInfo.email,
-        phone: customerInfo.phone,
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(customerInfo.email)) {
+      toast({
+        title: "Invalid email",
+        description: "Please enter a valid email address.",
+        variant: "destructive",
       })
+      return false
+    }
+
+    // Validate zipcode format
+    if (!/^\d{6}$/.test(customerInfo.zipcode)) {
+      toast({
+        title: "Invalid pincode",
+        description: "Please enter a valid 6-digit pincode.",
+        variant: "destructive",
+      })
+      return false
+    }
+
+    // Check if delivery is available
+    const validationResult = updateDeliveryFee(customerInfo.zipcode)
+    if (!validationResult.valid) {
+      toast({
+        title: "Delivery not available",
+        description: validationResult.message,
+        variant: "destructive",
+      })
+      return false
+    }
+
+    return true
+  }, [customerInfo, toast, updateDeliveryFee])
+
+  // Validate location section
+  const validateLocationSection = useCallback(() => {
+    if (!locationInfo.address) {
+      toast({
+        title: "Missing location",
+        description: "Please select a delivery location on the map.",
+        variant: "destructive",
+      })
+      return false
+    }
+
+    if (!deliveryDate) {
+      toast({
+        title: "Missing delivery date",
+        description: "Please select a delivery date.",
+        variant: "destructive",
+      })
+      return false
+    }
+
+    return true
+  }, [locationInfo, deliveryDate, toast])
+
+  // Complete contact section
+  const completeContactSection = useCallback(() => {
+    if (!validateContactSection()) return
+
+    // Identify user
+    identifyUser({
+      name: customerInfo.name,
+      email: customerInfo.email,
+      phone: customerInfo.phone,
+    })
+
+    // Update order
+    if (orderId) {
+      updateOrder(orderId, {
+        contactInfo: {
+          name: customerInfo.name,
+          email: customerInfo.email,
+          phone: customerInfo.phone,
+          zipcode: customerInfo.zipcode,
+        },
+        status: "contact_info_added",
+      })
+
+      trackCheckoutStep(1, orderId, {
+        step: "contact_info",
+        customerInfo: {
+          name: customerInfo.name,
+          email: customerInfo.email,
+          phone: customerInfo.phone,
+        },
+      })
+    }
+
+    // Mark section as completed
+    setCompletedSections((prev) => [...prev.filter((s) => s !== STEPS.CONTACT), STEPS.CONTACT])
+
+    // Move to next section
+    setExpandedSection(STEPS.LOCATION)
+  }, [
+    validateContactSection,
+    identifyUser,
+    customerInfo,
+    orderId,
+    updateOrder,
+    trackCheckoutStep,
+    setCompletedSections,
+    setExpandedSection,
+  ])
+
+  // Complete location section
+  const completeLocationSection = useCallback(() => {
+    if (!validateLocationSection()) return
+
+    // Update order
+    if (orderId) {
+      updateOrder(orderId, {
+        locationInfo: {
+          address: locationInfo.address,
+          lat: locationInfo.lat,
+          lng: locationInfo.lng,
+          mapUrl: locationInfo.mapUrl,
+        },
+        status: "location_added",
+        voiceNote: !!customerInfo.voiceNote,
+        deliveryDate: deliveryDate ? deliveryDate.toISOString() : undefined,
+      })
+
+      trackCheckoutStep(2, orderId, {
+        step: "location_info",
+        locationInfo,
+        hasVoiceNote: !!customerInfo.voiceNote,
+        deliveryDate: deliveryDate ? deliveryDate.toISOString() : undefined,
+      })
+    }
+
+    // Mark section as completed
+    setCompletedSections((prev) => [...prev.filter((s) => s !== STEPS.LOCATION), STEPS.LOCATION])
+
+    // Move to next section
+    setExpandedSection(STEPS.PAYMENT)
+  }, [
+    validateLocationSection,
+    orderId,
+    updateOrder,
+    locationInfo,
+    customerInfo.voiceNote,
+    deliveryDate,
+    trackCheckoutStep,
+  ])
+
+  // Handle payment method change
+  const handlePaymentMethodChange = useCallback(
+    (value: string) => {
+      setPaymentMethod(value)
+      localStorage.setItem("annapurna-payment-method", value)
 
       if (orderId) {
         updateOrder(orderId, {
-          contactInfo: {
-            name: customerInfo.name,
-            email: customerInfo.email,
-            phone: customerInfo.phone,
-            zipcode: customerInfo.zipcode,
-          },
-          status: "contact_info_added",
+          paymentMethod: value,
+          status: "payment_selected",
         })
 
-        trackCheckoutStep(1, orderId, {
-          step: "contact_info",
-          customerInfo: {
-            name: customerInfo.name,
-            email: customerInfo.email,
-            phone: customerInfo.phone,
-          },
+        trackCheckoutStep(3, orderId, {
+          step: "payment_selected",
+          paymentMethod: value,
         })
       }
+    },
+    [orderId, updateOrder, trackCheckoutStep],
+  )
 
-      // Mark this section as completed
-      setCompletedSections((prev) => [...prev.filter((s) => s !== STEPS.CONTACT), STEPS.CONTACT])
+  // Handle voice note recording
+  const handleVoiceNoteComplete = useCallback((audioBlob: Blob) => {
+    setCustomerInfo((prev) => ({
+      ...prev,
+      voiceNote: audioBlob,
+    }))
+    sessionStorage.setItem("annapurna-voice-note", "true")
+  }, [])
 
-      // Move to next section
-      setExpandedSection(STEPS.LOCATION)
-    } else if (expandedSection === STEPS.LOCATION) {
-      if (!locationInfo.address) {
-        toast({
-          title: "Missing location",
-          description: "Please select a delivery location on the map.",
-          variant: "destructive",
-        })
-        return
-      }
+  // Handle voice note clearing
+  const handleVoiceNoteClear = useCallback(() => {
+    setCustomerInfo((prev) => ({
+      ...prev,
+      voiceNote: undefined,
+    }))
+    sessionStorage.removeItem("annapurna-voice-note")
+  }, [])
 
-      if (!deliveryDate) {
-        toast({
-          title: "Missing delivery date",
-          description: "Please select a delivery date.",
-          variant: "destructive",
-        })
-        return
-      }
+  // Handle payment success
+  const handlePaymentSuccess = useCallback(
+    (paymentId: string, orderId: string) => {
+      // Use either context items or localStorage items
+      const itemsToDisplay = items.length > 0 ? items : localStorageItems
 
-      // Update order with location info
       if (orderId) {
+        updateOrderStatus(orderId, "payment_completed")
         updateOrder(orderId, {
-          locationInfo: {
-            address: locationInfo.address,
-            lat: locationInfo.lat,
-            lng: locationInfo.lng,
-            mapUrl: locationInfo.mapUrl,
-          },
-          status: "location_added",
-          voiceNote: !!customerInfo.voiceNote,
-          deliveryDate: deliveryDate ? deliveryDate.toISOString() : undefined,
+          transactionId: paymentId,
+          amount: total,
         })
 
-        trackCheckoutStep(2, orderId, {
-          step: "location_info",
-          locationInfo,
-          hasVoiceNote: !!customerInfo.voiceNote,
-          deliveryDate: deliveryDate ? deliveryDate.toISOString() : undefined,
-        })
-      }
-
-      // Mark this section as completed
-      setCompletedSections((prev) => [...prev.filter((s) => s !== STEPS.LOCATION), STEPS.LOCATION])
-
-      // Move to next section
-      setExpandedSection(STEPS.PAYMENT)
-    }
-  }
-
-  // Update payment method selection to track
-  const handlePaymentMethodChange = (value: string) => {
-    setPaymentMethod(value)
-    // Save to localStorage
-    localStorage.setItem("annapurna-payment-method", value)
-
-    if (orderId) {
-      updateOrder(orderId, {
-        paymentMethod: value,
-        status: "payment_selected",
-      })
-
-      trackCheckoutStep(3, orderId, {
-        step: "payment_selected",
-        paymentMethod: value,
-      })
-    }
-  }
-
-  // Find the handlePaymentSuccess function and update it to include more data
-  const handlePaymentSuccess = (paymentId: string, orderId: string) => {
-    // Use either context items or localStorage items
-    const itemsToDisplay = items.length > 0 ? items : localStorageItems
-
-    if (orderId) {
-      updateOrderStatus(orderId, "payment_completed")
-      updateOrder(orderId, {
-        transactionId: paymentId,
-        amount: total,
-      })
-
-      // Replace the direct tracking service call with a simpler version
-      if (typeof window !== "undefined") {
-        // Store order completion info in localStorage for debugging only
-        try {
-          localStorage.setItem("last_order_id", orderId)
-          localStorage.setItem("last_payment_id", paymentId)
-        } catch (e) {
-          // Ignore storage errors
+        // Store order completion info in localStorage for debugging
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.setItem("last_order_id", orderId)
+            localStorage.setItem("last_payment_id", paymentId)
+          } catch (e) {
+            // Ignore storage errors
+          }
         }
       }
-    }
 
-    // Store payment details in session storage for the success page
-    sessionStorage.setItem(
-      "paymentDetails",
-      JSON.stringify({
-        paymentId,
-        orderId,
-        amount: total,
-        date: new Date().toISOString(),
-        gateway: paymentMethod === "razorpay" ? "Razorpay" : "PhonePe",
-      }),
-    )
+      // Store payment details in session storage
+      sessionStorage.setItem(
+        "paymentDetails",
+        JSON.stringify({
+          paymentId,
+          orderId,
+          amount: total,
+          date: new Date().toISOString(),
+          gateway: paymentMethod === "razorpay" ? "Razorpay" : "PhonePe",
+        }),
+      )
 
-    // Store order details
-    sessionStorage.setItem(
-      "orderDetails",
-      JSON.stringify({
-        customerInfo,
+      // Store order details
+      sessionStorage.setItem(
+        "orderDetails",
+        JSON.stringify({
+          customerInfo,
+          locationInfo,
+          items: itemsToDisplay,
+          total,
+          deliveryDate: deliveryDate ? deliveryDate.toISOString() : undefined,
+        }),
+      )
+
+      // Store complete order data
+      const completeOrderData = {
+        id: orderId,
+        createdAt: new Date().toISOString(),
+        status: "completed",
+        customerInfo: {
+          name: customerInfo.name,
+          email: customerInfo.email,
+          phone: customerInfo.phone,
+          notes: customerInfo.notes,
+          zipcode: customerInfo.zipcode,
+          hasVoiceNote: !!customerInfo.voiceNote,
+        },
         locationInfo,
-        items: itemsToDisplay,
-        total,
+        paymentInfo: {
+          method: paymentMethod,
+          transactionId: paymentId,
+          amount: total,
+        },
+        items: itemsToDisplay.map((item) => ({
+          productId: item.product.id,
+          productName: item.product.name,
+          quantity: item.quantity || 1,
+          price: item.product.price,
+          subscriptionOption: item.subscriptionOption,
+          subscriptionDays: item.subscriptionDays,
+        })),
         deliveryDate: deliveryDate ? deliveryDate.toISOString() : undefined,
-      }),
-    )
+        total,
+        couponCode: appliedCoupon ? couponContext.appliedCoupon.code : undefined,
+      }
 
-    // Add this after storing payment details in session storage for the success page
-    // Store complete order data in localStorage for admin dashboard
-    const completeOrderData = {
-      id: orderId,
-      createdAt: new Date().toISOString(),
-      status: "completed",
-      customerInfo: {
-        name: customerInfo.name,
-        email: customerInfo.email,
-        phone: customerInfo.phone,
-        notes: customerInfo.notes,
-        zipcode: customerInfo.zipcode,
-        hasVoiceNote: !!customerInfo.voiceNote,
-      },
-      locationInfo,
-      paymentInfo: {
-        method: paymentMethod,
-        transactionId: paymentId,
-        amount: total,
-      },
-      items: itemsToDisplay.map((item) => ({
-        productId: item.product.id,
-        productName: item.product.name,
-        quantity: item.quantity || 1,
-        price: item.product.price,
-        subscriptionOption: item.subscriptionOption,
-        subscriptionDays: item.subscriptionDays,
-      })),
-      deliveryDate: deliveryDate ? deliveryDate.toISOString() : undefined,
+      // Save order data
+      OrderStorage.saveOrder(completeOrderData)
+
+      // Clear the cart
+      clearCart()
+
+      // Show success toast
+      toast({
+        title: "Payment successful!",
+        description: "Your order has been placed successfully.",
+      })
+
+      // Redirect to success page
+      router.push("/checkout/success")
+    },
+    [
+      items,
+      localStorageItems,
+      updateOrderStatus,
+      updateOrder,
       total,
-      couponCode: appliedCoupon ? couponContext.appliedCoupon.code : undefined,
-    }
+      customerInfo,
+      locationInfo,
+      deliveryDate,
+      paymentMethod,
+      appliedCoupon,
+      couponContext.appliedCoupon,
+      clearCart,
+      toast,
+      router,
+    ],
+  )
 
-    // Save order data to localStorage using our enhanced service
-    OrderStorage.saveOrder(completeOrderData)
+  // Handle payment failure
+  const handlePaymentFailure = useCallback(
+    (error: any) => {
+      console.error("Payment failed:", error)
+      toast({
+        title: "Payment Failed",
+        description: "There was an error processing your payment. Please try again.",
+        variant: "destructive",
+      })
+    },
+    [toast],
+  )
 
-    // Clear the cart
-    clearCart()
-
-    // Show success toast
-    toast({
-      title: "Payment successful!",
-      description: "Your order has been placed successfully.",
-    })
-
-    // Redirect to success page
-    router.push("/checkout/success")
-  }
-
-  const placeOrder = () => {
-    // For Razorpay and PhonePe, the payment is handled by their respective components
-  }
-
-  const handlePaymentFailure = (error: any) => {
-    console.error("Payment failed:", error)
-    toast({
-      title: "Payment Failed",
-      description: "There was an error processing your payment. Please try again.",
-      variant: "destructive",
-    })
-  }
-
-  // If we're still loading, show a loading spinner
+  // If still loading, show spinner
   if (isLoadingCart) {
-    return (
-      <div className="container mx-auto px-4 py-12 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-amber-700"></div>
-        <p className="ml-3 text-amber-700">Loading your cart...</p>
-      </div>
-    )
+    return <LoadingSpinner />
   }
 
   // Use either context items or localStorage items
   const itemsToDisplay = items.length > 0 ? items : localStorageItems
 
-  // If cart is empty after loading, show a message
+  // If cart is empty, show empty cart message
   if (itemsToDisplay.length === 0) {
-    return (
-      <div className="container mx-auto px-4 py-12 flex flex-col items-center justify-center">
-        <div className="text-center mb-8">
-          <h2 className="text-2xl font-bold text-amber-800 mb-4">Your cart is empty</h2>
-          <p className="text-gray-600 mb-6">Please add some items to your cart before proceeding to checkout.</p>
-          <Button onClick={() => (window.location.href = "/menu")} className="bg-amber-700 hover:bg-amber-800">
-            Browse Menu
-          </Button>
-        </div>
-      </div>
-    )
-  }
-
-  // Render section header with completion status
-  const renderSectionHeader = (step: number, title: string, icon: React.ReactNode) => {
-    const isCompleted = completedSections.includes(step)
-    const isExpanded = expandedSection === step
-    const isActive = isExpanded || isCompleted
-
-    return (
-      <div
-        ref={sectionRefs[step]}
-        className={`flex items-center p-4 cursor-pointer ${isActive ? "bg-white" : "bg-gray-50"}`}
-        onClick={() => toggleSection(step)}
-      >
-        <div
-          className={`w-10 h-10 rounded-full flex items-center justify-center mr-3 ${
-            isCompleted
-              ? "bg-green-500 text-white"
-              : isExpanded
-                ? "bg-amber-700 text-white"
-                : "bg-gray-200 text-gray-500"
-          }`}
-        >
-          {isCompleted ? <CheckCircle className="h-5 w-5" /> : icon}
-        </div>
-        <div className="flex-1">
-          <div className="flex items-center justify-between">
-            <span className="font-medium">{title}</span>
-            {!isExpanded && <ChevronDown className="h-4 w-4 text-gray-500" />}
-          </div>
-          {isExpanded && <div className="h-1 bg-amber-700 rounded-full mt-1 w-full"></div>}
-          {isCompleted && !isExpanded && (
-            <div className="text-sm text-green-600 flex items-center mt-1">
-              <CheckCircle className="h-3 w-3 mr-1" /> Completed
-            </div>
-          )}
-        </div>
-      </div>
-    )
+    return <EmptyCart />
   }
 
   return (
     <div className="container mx-auto px-4 py-12">
       <h1 className="text-3xl font-bold text-amber-800 mb-8">Checkout</h1>
+
       {/* Mobile Accordion Checkout */}
       <div className="md:hidden">
         <div className="rounded-lg overflow-hidden border border-gray-200 mb-6">
           {/* Contact Section */}
           <div className="border-b">
-            {renderSectionHeader(STEPS.CONTACT, "Contact", <User className="h-5 w-5" />)}
+            <SectionHeader
+              step={STEPS.CONTACT}
+              title="Contact"
+              icon={<User className="h-5 w-5" />}
+              isCompleted={completedSections.includes(STEPS.CONTACT)}
+              isExpanded={expandedSection === STEPS.CONTACT}
+              onClick={() => toggleSection(STEPS.CONTACT)}
+              sectionRef={sectionRefs[STEPS.CONTACT]}
+            />
             <AnimatePresence>
               {expandedSection === STEPS.CONTACT && (
                 <motion.div
@@ -837,62 +1124,12 @@ export default function CheckoutPageClient() {
                   transition={{ duration: 0.3 }}
                 >
                   <div className="p-4 pt-0">
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="name">Full Name *</Label>
-                        <Input
-                          id="name"
-                          placeholder="Your full name"
-                          required
-                          className="mt-1"
-                          value={customerInfo.name}
-                          onChange={handleInputChange}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="phone">WhatsApp Number *</Label>
-                        <Input
-                          id="phone"
-                          placeholder="Your WhatsApp number"
-                          required
-                          className="mt-1"
-                          value={customerInfo.phone}
-                          onChange={handleInputChange}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="email">Email *</Label>
-                        <Input
-                          id="email"
-                          type="email"
-                          placeholder="Your email address"
-                          required
-                          className="mt-1"
-                          value={customerInfo.email}
-                          onChange={handleInputChange}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="zipcode">Pincode/Zipcode *</Label>
-                        <Input
-                          id="zipcode"
-                          placeholder="Enter your pincode"
-                          required
-                          className={`mt-1 ${zipcodeValidation && !zipcodeValidation.valid ? "border-red-500" : ""}`}
-                          value={customerInfo.zipcode}
-                          onChange={handleInputChange}
-                        />
-                        {zipcodeValidation && (
-                          <p className={`text-xs mt-1 ${zipcodeValidation.valid ? "text-green-600" : "text-red-500"}`}>
-                            {zipcodeValidation.message}
-                          </p>
-                        )}
-                      </div>
-                      <Button onClick={completeSection} className="w-full bg-amber-700 hover:bg-amber-800">
-                        Continue
-                        <ChevronRight className="ml-2 h-4 w-4" />
-                      </Button>
-                    </div>
+                    <ContactForm
+                      customerInfo={customerInfo}
+                      zipcodeValidation={zipcodeValidation}
+                      handleInputChange={handleInputChange}
+                      onComplete={completeContactSection}
+                    />
                   </div>
                 </motion.div>
               )}
@@ -901,7 +1138,15 @@ export default function CheckoutPageClient() {
 
           {/* Location Section */}
           <div className="border-b">
-            {renderSectionHeader(STEPS.LOCATION, "Location", <MapPin className="h-5 w-5" />)}
+            <SectionHeader
+              step={STEPS.LOCATION}
+              title="Location"
+              icon={<MapPin className="h-5 w-5" />}
+              isCompleted={completedSections.includes(STEPS.LOCATION)}
+              isExpanded={expandedSection === STEPS.LOCATION}
+              onClick={() => toggleSection(STEPS.LOCATION)}
+              sectionRef={sectionRefs[STEPS.LOCATION]}
+            />
             <AnimatePresence>
               {expandedSection === STEPS.LOCATION && (
                 <motion.div
@@ -911,52 +1156,19 @@ export default function CheckoutPageClient() {
                   transition={{ duration: 0.3 }}
                 >
                   <div className="p-4 pt-0">
-                    <GoogleMapsUrlInput onLocationSelect={handleLocationSelect} defaultLocation={locationInfo} />
-                    <div className="mt-4">
-                      <Label>Delivery Instructions (Voice Note)</Label>
-                      <VoiceNoteRecorder
-                        onRecordingComplete={(audioBlob) => {
-                          setCustomerInfo((prev) => ({
-                            ...prev,
-                            voiceNote: audioBlob,
-                          }))
-                          // Store a flag in sessionStorage indicating there is a voice note
-                          sessionStorage.setItem("annapurna-voice-note", "true")
-                        }}
-                        onRecordingClear={() => {
-                          setCustomerInfo((prev) => ({
-                            ...prev,
-                            voiceNote: undefined,
-                          }))
-                          // Remove the flag from sessionStorage
-                          sessionStorage.removeItem("annapurna-voice-note")
-                        }}
-                        existingRecording={customerInfo.voiceNote}
-                      />
-                      <div className="mt-6">
-                        <Label>Delivery Date</Label>
-                        <DeliveryDateSelector
-                          mealType={mealType === "brunch" ? "brunch" : "dinner"}
-                          isSubscription={hasSubscription}
-                          onDateSelected={(date) => setDeliveryDate(date)}
-                          defaultDate={deliveryDate}
-                        />
-                      </div>
-                      <div className="flex justify-between mt-4">
-                        <Button
-                          variant="outline"
-                          onClick={() => toggleSection(STEPS.CONTACT)}
-                          className="border-amber-700 text-amber-700"
-                        >
-                          <ChevronLeft className="mr-2 h-4 w-4" />
-                          Back
-                        </Button>
-                        <Button onClick={completeSection} className="bg-amber-700 hover:bg-amber-800">
-                          Continue
-                          <ChevronRight className="ml-2 h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
+                    <LocationForm
+                      locationInfo={locationInfo}
+                      customerInfo={customerInfo}
+                      deliveryDate={deliveryDate}
+                      mealType={mealType}
+                      hasSubscription={hasSubscription}
+                      onLocationSelect={handleLocationSelect}
+                      onVoiceNoteComplete={handleVoiceNoteComplete}
+                      onVoiceNoteClear={handleVoiceNoteClear}
+                      onDateSelected={setDeliveryDate}
+                      onBack={() => toggleSection(STEPS.CONTACT)}
+                      onComplete={completeLocationSection}
+                    />
                   </div>
                 </motion.div>
               )}
@@ -965,7 +1177,15 @@ export default function CheckoutPageClient() {
 
           {/* Payment Section */}
           <div>
-            {renderSectionHeader(STEPS.PAYMENT, "Payment", <CreditCard className="h-5 w-5" />)}
+            <SectionHeader
+              step={STEPS.PAYMENT}
+              title="Payment"
+              icon={<CreditCard className="h-5 w-5" />}
+              isCompleted={completedSections.includes(STEPS.PAYMENT)}
+              isExpanded={expandedSection === STEPS.PAYMENT}
+              onClick={() => toggleSection(STEPS.PAYMENT)}
+              sectionRef={sectionRefs[STEPS.PAYMENT]}
+            />
             <AnimatePresence>
               {expandedSection === STEPS.PAYMENT && (
                 <motion.div
@@ -975,42 +1195,18 @@ export default function CheckoutPageClient() {
                   transition={{ duration: 0.3 }}
                 >
                   <div className="p-4 pt-0">
-                    {/* Add coupon input at the top of the payment section */}
-                    <div className="mb-6">
-                      <h3 className="font-medium mb-3">Have a coupon code?</h3>
-                      <CouponInput />
-                    </div>
+                    <PaymentForm
+                      paymentMethod={paymentMethod}
+                      onPaymentMethodChange={handlePaymentMethodChange}
+                      onBack={() => toggleSection(STEPS.LOCATION)}
+                      customerInfo={customerInfo}
+                      locationInfo={locationInfo}
+                      total={total}
+                      handlePaymentSuccess={handlePaymentSuccess}
+                      handlePaymentFailure={handlePaymentFailure}
+                    />
 
-                    <RadioGroup value={paymentMethod} onValueChange={handlePaymentMethodChange} className="space-y-3">
-                      <div
-                        className="flex items-center space-x-2 border p-4 rounded-lg hover:bg-amber-100 cursor-pointer"
-                        onClick={() => handlePaymentMethodChange("razorpay")}
-                      >
-                        <RadioGroupItem value="razorpay" id="razorpay" />
-                        <Label htmlFor="razorpay" className="flex-1 cursor-pointer">
-                          <div className="font-medium">Pay with Razorpay</div>
-                          <div className="text-sm text-gray-600">
-                            Pay securely with credit/debit card, UPI, or net banking
-                          </div>
-                        </Label>
-                        <div className="w-24 h-10 relative">
-                          <Image
-                            src="/images/razorpay-logo.png"
-                            alt="Razorpay"
-                            fill
-                            className="object-contain"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement
-                              target.src =
-                                "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/razorpay%20brand%20logo-A7IwYxfloeVtK0E9V8JjS80lq3xDWL.png"
-                            }}
-                          />
-                        </div>
-                      </div>
-                      {/* Remove PhonePe payment option */}
-                    </RadioGroup>
-
-                    {/* Upsell/Order Bumps Section - Only show on payment step */}
+                    {/* Upsell/Order Bumps Section */}
                     {hasSubscription && <SweetsSubscriptionUpsell />}
 
                     {/* Show regular upsells for all customers */}
@@ -1021,36 +1217,6 @@ export default function CheckoutPageClient() {
                         description="Add these complementary items to your order with just one click!"
                       />
                     )}
-
-                    <div className="flex justify-between mt-4">
-                      <Button
-                        variant="outline"
-                        onClick={() => toggleSection(STEPS.LOCATION)}
-                        className="border-amber-700 text-amber-700"
-                      >
-                        <ChevronLeft className="mr-2 h-4 w-4" />
-                        Back
-                      </Button>
-                    </div>
-
-                    {/* Payment buttons */}
-                    <div className="w-full space-y-4 mt-4">
-                      {paymentMethod === "razorpay" && (
-                        <RazorpayPayment
-                          amount={total}
-                          customerInfo={{
-                            name: customerInfo.name,
-                            email: customerInfo.email || "customer@example.com",
-                            phone: customerInfo.phone,
-                            address: locationInfo.address,
-                          }}
-                          onSuccess={handlePaymentSuccess}
-                          onFailure={handlePaymentFailure}
-                          className="mb-4"
-                        />
-                      )}
-                      {/* Remove PhonePe payment button */}
-                    </div>
                   </div>
                 </motion.div>
               )}
@@ -1061,13 +1227,14 @@ export default function CheckoutPageClient() {
         {/* Order Summary for Mobile */}
         <OrderSummary />
       </div>
-      ;
+
+      {/* Desktop Checkout */}
       <div className="hidden md:block">
         {/* Checkout Progress */}
         <div className="mb-8">
           <div className="flex justify-between">
             {Object.values(STEPS)
-              .filter((step) => typeof step === "number")
+              .filter((step): step is number => typeof step === "number")
               .map((step) => (
                 <div key={step} className="flex flex-col items-center">
                   <div
@@ -1119,58 +1286,12 @@ export default function CheckoutPageClient() {
                 {expandedSection === STEPS.CONTACT && (
                   <div>
                     <h2 className="text-xl font-semibold mb-4">Contact Information</h2>
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="name">Full Name *</Label>
-                        <Input
-                          id="name"
-                          placeholder="Your full name"
-                          required
-                          className="mt-1"
-                          value={customerInfo.name}
-                          onChange={handleInputChange}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="phone">WhatsApp Number *</Label>
-                        <Input
-                          id="phone"
-                          placeholder="Your WhatsApp number"
-                          required
-                          className="mt-1"
-                          value={customerInfo.phone}
-                          onChange={handleInputChange}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="email">Email *</Label>
-                        <Input
-                          id="email"
-                          type="email"
-                          placeholder="Your email address"
-                          required
-                          className="mt-1"
-                          value={customerInfo.email}
-                          onChange={handleInputChange}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="zipcode">Pincode/Zipcode *</Label>
-                        <Input
-                          id="zipcode"
-                          placeholder="Enter your pincode"
-                          required
-                          className={`mt-1 ${zipcodeValidation && !zipcodeValidation.valid ? "border-red-500" : ""}`}
-                          value={customerInfo.zipcode}
-                          onChange={handleInputChange}
-                        />
-                        {zipcodeValidation && (
-                          <p className={`text-xs mt-1 ${zipcodeValidation.valid ? "text-green-600" : "text-red-500"}`}>
-                            {zipcodeValidation.message}
-                          </p>
-                        )}
-                      </div>
-                    </div>
+                    <ContactForm
+                      customerInfo={customerInfo}
+                      zipcodeValidation={zipcodeValidation}
+                      handleInputChange={handleInputChange}
+                      onComplete={completeContactSection}
+                    />
                   </div>
                 )}
 
@@ -1182,24 +1303,8 @@ export default function CheckoutPageClient() {
                     <div className="mt-4">
                       <Label>Delivery Instructions (Voice Note)</Label>
                       <VoiceNoteRecorder
-                        onRecordingComplete={(audioBlob) => {
-                          // Store the audio blob in the state
-                          setCustomerInfo((prev) => ({
-                            ...prev,
-                            voiceNote: audioBlob,
-                          }))
-                          // Store a flag in sessionStorage indicating there is a voice note
-                          sessionStorage.setItem("annapurna-voice-note", "true")
-                        }}
-                        onRecordingClear={() => {
-                          // Clear the voice note
-                          setCustomerInfo((prev) => ({
-                            ...prev,
-                            voiceNote: undefined,
-                          }))
-                          // Remove the flag from sessionStorage
-                          sessionStorage.removeItem("annapurna-voice-note")
-                        }}
+                        onRecordingComplete={handleVoiceNoteComplete}
+                        onRecordingClear={handleVoiceNoteClear}
                         existingRecording={customerInfo.voiceNote}
                       />
                       <div className="mt-6">
@@ -1207,7 +1312,7 @@ export default function CheckoutPageClient() {
                         <DeliveryDateSelector
                           mealType={mealType === "brunch" ? "brunch" : "dinner"}
                           isSubscription={hasSubscription}
-                          onDateSelected={(date) => setDeliveryDate(date)}
+                          onDateSelected={setDeliveryDate}
                           defaultDate={deliveryDate}
                         />
                       </div>
@@ -1219,41 +1324,16 @@ export default function CheckoutPageClient() {
                 {expandedSection === STEPS.PAYMENT && (
                   <div>
                     <h2 className="text-xl font-semibold mb-4">Payment Method</h2>
-
-                    {/* Add coupon input at the top of the payment section */}
-                    <div className="mb-6">
-                      <h3 className="font-medium mb-3">Have a coupon code?</h3>
-                      <CouponInput />
-                    </div>
-
-                    <RadioGroup value={paymentMethod} onValueChange={handlePaymentMethodChange} className="space-y-3">
-                      <div
-                        className="flex items-center space-x-2 border p-4 rounded-lg hover:bg-amber-100 cursor-pointer"
-                        onClick={() => handlePaymentMethodChange("razorpay")}
-                      >
-                        <RadioGroupItem value="razorpay" id="razorpay" />
-                        <Label htmlFor="razorpay" className="flex-1 cursor-pointer">
-                          <div className="font-medium">Pay with Razorpay</div>
-                          <div className="text-sm text-gray-600">
-                            Pay securely with credit/debit card, UPI, or net banking
-                          </div>
-                        </Label>
-                        <div className="w-24 h-10 relative">
-                          <Image
-                            src="/images/razorpay-logo.png"
-                            alt="Razorpay"
-                            fill
-                            className="object-contain"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement
-                              target.src =
-                                "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/razorpay%20brand%20logo-A7IwYxfloeVtK0E9V8JjS80lq3xDWL.png"
-                            }}
-                          />
-                        </div>
-                      </div>
-                      {/* Remove PhonePe payment option */}
-                    </RadioGroup>
+                    <PaymentForm
+                      paymentMethod={paymentMethod}
+                      onPaymentMethodChange={handlePaymentMethodChange}
+                      onBack={() => toggleSection(STEPS.LOCATION)}
+                      customerInfo={customerInfo}
+                      locationInfo={locationInfo}
+                      total={total}
+                      handlePaymentSuccess={handlePaymentSuccess}
+                      handlePaymentFailure={handlePaymentFailure}
+                    />
                   </div>
                 )}
               </CardContent>
@@ -1292,30 +1372,14 @@ export default function CheckoutPageClient() {
               )}
 
               {expandedSection < STEPS.PAYMENT ? (
-                <Button onClick={completeSection} className="bg-amber-700 hover:bg-amber-800">
+                <Button
+                  onClick={expandedSection === STEPS.CONTACT ? completeContactSection : completeLocationSection}
+                  className="bg-amber-700 hover:bg-amber-800"
+                >
                   Continue
                   <ChevronRight className="ml-2 h-4 w-4" />
                 </Button>
-              ) : (
-                // Payment buttons on payment stage
-                <div className="w-full space-y-4 mt-4">
-                  {paymentMethod === "razorpay" && (
-                    <RazorpayPayment
-                      amount={total}
-                      customerInfo={{
-                        name: customerInfo.name,
-                        email: customerInfo.email || "customer@example.com",
-                        phone: customerInfo.phone,
-                        address: locationInfo.address,
-                      }}
-                      onSuccess={handlePaymentSuccess}
-                      onFailure={handlePaymentFailure}
-                      className="mb-4"
-                    />
-                  )}
-                  {/* Remove PhonePe payment button */}
-                </div>
-              )}
+              ) : null}
             </div>
           </div>
 

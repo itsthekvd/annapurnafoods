@@ -1,5 +1,6 @@
 "use client"
 
+import { useCallback, useMemo } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
@@ -13,18 +14,44 @@ export default function SpecialsSection() {
   const { addItem } = useCart()
   const router = useRouter()
 
-  const handleAddToCart = (productId: string) => {
-    const product = specialProducts.find((p) => p.id === productId)
-    if (product) {
+  const handleAddToCart = useCallback(
+    (productId: string) => {
+      const product = specialProducts.find((p) => p.id === productId)
+      if (!product) return
+
       // Make sure we're adding the product with the correct image URL
       const productWithImage = {
         ...product,
         image: getImageUrlWithFallback(product.id),
       }
+
       addItem(productWithImage, 1)
       router.push("/cart")
-    }
-  }
+    },
+    [addItem, router],
+  )
+
+  // Memoize the product cards
+  const productCards = useMemo(
+    () =>
+      specialProducts.map((product) => (
+        <Card key={product.id} className="overflow-hidden border-amber-100 hover:shadow-md transition-shadow">
+          <div className="relative h-48">
+            <Image
+              src={getImageUrlWithFallback(product.id) || "/placeholder.svg"}
+              alt={product.name}
+              fill
+              className="object-cover"
+            />
+          </div>
+          <CardContent className="pt-6 pb-4">
+            <h3 className="text-lg font-semibold mb-2">{product.name}</h3>
+            <p className="text-gray-600 text-sm">{product.description}</p>
+          </CardContent>
+        </Card>
+      )),
+    [],
+  )
 
   return (
     <section className="py-16 bg-amber-50">
@@ -37,24 +64,7 @@ export default function SpecialsSection() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {specialProducts.map((product) => (
-            <Card key={product.id} className="overflow-hidden border-amber-100 hover:shadow-md transition-shadow">
-              <div className="relative h-48">
-                <Image
-                  src={getImageUrlWithFallback(product.id) || "/placeholder.svg"}
-                  alt={product.name}
-                  fill
-                  className="object-cover"
-                />
-              </div>
-              <CardContent className="pt-6 pb-4">
-                <h3 className="text-lg font-semibold mb-2">{product.name}</h3>
-                <p className="text-gray-600 text-sm">{product.description}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">{productCards}</div>
 
         <div className="text-center mt-12">
           <Link href="/menu">

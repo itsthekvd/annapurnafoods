@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, type ReactNode } from "react"
 import type { Product } from "@/lib/types"
 import { useToast } from "@/hooks/use-toast"
 import { useCoupon } from "@/contexts/coupon-context"
@@ -14,8 +14,12 @@ export interface CartItem {
   subscriptionDays?: number
 }
 
-// Add zipcode to the CartContextType interface
-interface CartContextType {
+interface DeliveryFeeResult {
+  valid: boolean
+  message: string
+}
+
+export interface CartContextType {
   items: CartItem[]
   addItem: (
     product: Product,
@@ -33,16 +37,17 @@ interface CartContextType {
   total: number
   itemCount: number
   orderId: string | null
-  updateDeliveryFee: (zipcode: string) => { valid: boolean; message: string }
+  updateDeliveryFee: (zipcode: string) => DeliveryFeeResult
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined)
 
-// Add a state for delivery fee and a function to update it
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([])
   const [orderId, setOrderId] = useState<string | null>(null)
   const [deliveryFeeAmount, setDeliveryFeeAmount] = useState(30) // Default delivery fee
+  const [isInitialized, setIsInitialized] = useState(false)
+
   const { toast } = useToast()
   const { calculateDiscountedPrice, appliedCoupon } = useCoupon()
   const { trackAddToCart, trackRemoveFromCart, createOrder, updateOrder, getCurrentActiveOrder } = useTracking()
@@ -52,23 +57,23 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const loadCartFromStorage = () => {
       try {
         const savedCart = localStorage.getItem("annapurna-cart")
-        if (savedCart) {
-          const parsedCart = JSON.parse(savedCart)
-          if (Array.isArray(parsedCart) && parsedCart.length > 0) {
-            console.log("Loading cart from localStorage:", parsedCart)
-            setItems(parsedCart)
+        if (!savedCart) return
 
-            // Check if we have an active order
-            const activeOrder = getCurrentActiveOrder()
-            if (activeOrder) {
-              setOrderId(activeOrder.orderId)
-              // Update order items if they've changed
-              updateOrder(activeOrder.orderId, { items: parsedCart })
-            } else if (parsedCart.length > 0) {
-              // Create a new order if we have items but no active order
-              const newOrderId = createOrder(parsedCart)
-              setOrderId(newOrderId)
-            }
+        const parsedCart = JSON.parse(savedCart)
+        if (Array.isArray(parsedCart) && parsedCart.length > 0) {
+          console.log("Loading cart from localStorage:", parsedCart)
+          setItems(parsedCart)
+
+          // Check if we have an active order
+          const activeOrder = getCurrentActiveOrder()
+          if (activeOrder) {
+            setOrderId(activeOrder.orderId)
+            // Update order items if they've changed
+            updateOrder(activeOrder.orderId, { items: parsedCart })
+          } else if (parsedCart.length > 0) {
+            // Create a new order if we have items but no active order
+            const newOrderId = createOrder(parsedCart)
+            setOrderId(newOrderId)
           }
         }
       } catch (error) {
@@ -88,12 +93,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
     window.addEventListener("storage", handleStorageChange)
     return () => window.removeEventListener("storage", handleStorageChange)
-  }, [])
+  }, [getCurrentActiveOrder, createOrder, updateOrder])
 
-  // Add a flag to track initialization
-  const [isInitialized, setIsInitialized] = useState(false)
-
-  // Add this useEffect to ensure cart is properly initialized
+  // Ensure cart is properly initialized
   useEffect(() => {
     if (!isInitialized && typeof window !== "undefined") {
       const savedCart = localStorage.getItem("annapurna-cart")
@@ -121,10 +123,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
     if (orderId && items.length > 0) {
       updateOrder(orderId, { items })
     }
-  }, [items, orderId])
+  }, [items, orderId, updateOrder])
 
-  // Add a function to calculate delivery fee based on zipcode
-  const updateDeliveryFee = (zipcode: string) => {
+  // Calculate delivery fee based on zipcode
+  const updateDeliveryFee = useCallback((zipcode: string): DeliveryFeeResult => {
     if (!zipcode || zipcode.length !== 6) {
       setDeliveryFeeAmount(30) // Default fee
       return { valid: false, message: "Please enter a valid 6-digit pincode" }
@@ -147,26 +149,28 @@ export function CartProvider({ children }: { children: ReactNode }) {
       setDeliveryFeeAmount(70)
       return { valid: true, message: "Delivery available to this area (₹70)" }
     }
-  }
+  }, [])
 
-  // Calculate totals
-  const subtotal = items.reduce((sum, item) => {
-    // Special case for the Rs. 1 coupon
-    if (appliedCoupon?.type === "special" && appliedCoupon?.specialAction === "set_total_to_one") {
-      // For this special coupon, we return exactly ₹1 for the entire order
-      return 1
-    }
+  // Calculate subtotal with memoization
+  const subtotal = useMemo(() => {
+    return items.reduce((sum, item) => {
+      // Special case for the Rs. 1 coupon
+      if (appliedCoupon?.type === "special" && appliedCoupon?.specialAction === "set_total_to_one") {
+        // For this special coupon, we return exactly ₹1 for the entire order
+        return 1
+      }
 
-    if (item.subscriptionOption) {
-      const option = subscriptionOptions.find((opt) => opt.id === item.subscriptionOption)
-      const discountPercentage = option?.discountPercentage || 0
-      return sum + calculateDiscountedPrice(item.product.price, item.subscriptionDays || 1, discountPercentage)
-    }
-    return sum + calculateDiscountedPrice(item.product.price, item.quantity)
-  }, 0)
+      if (item.subscriptionOption) {
+        const option = subscriptionOptions.find((opt) => opt.id === item.subscriptionOption)
+        const discountPercentage = option?.discountPercentage || 0
+        return sum + calculateDiscountedPrice(item.product.price, item.subscriptionDays || 1, discountPercentage)
+      }
+      return sum + calculateDiscountedPrice(item.product.price, item.quantity)
+    }, 0)
+  }, [items, appliedCoupon, calculateDiscountedPrice])
 
-  // Calculate delivery fee based on subscription frequency
-  const deliveryFee = (() => {
+  // Calculate delivery fee with memoization
+  const deliveryFee = useMemo(() => {
     // If subtotal is 0 or we have the special Rs. 1 coupon, no delivery fee
     if (subtotal === 0 || (appliedCoupon?.type === "special" && appliedCoupon?.specialAction === "set_total_to_one")) {
       return 0
@@ -195,152 +199,173 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
     // Return the base fee multiplied by the number of deliveries
     return baseFee * totalDeliveries
-  })()
+  }, [subtotal, appliedCoupon, deliveryFeeAmount, items])
 
-  const total = subtotal + deliveryFee
+  // Calculate total with memoization
+  const total = useMemo(() => subtotal + deliveryFee, [subtotal, deliveryFee])
 
-  const itemCount = items.reduce((count, item) => count + item.quantity, 0)
+  // Calculate item count with memoization
+  const itemCount = useMemo(() => items.reduce((count, item) => count + item.quantity, 0), [items])
 
   // Add item to cart
-  const addItem = (
-    product: Product,
-    quantity = 1,
-    subscriptionMonths?: number,
-    subscriptionOption?: string,
-    subscriptionDays?: number,
-  ) => {
-    setItems((prevItems) => {
-      const existingItemIndex = prevItems.findIndex(
-        (item) => item.product.id === product.id && item.subscriptionOption === subscriptionOption,
-      )
+  const addItem = useCallback(
+    (
+      product: Product,
+      quantity = 1,
+      subscriptionMonths?: number,
+      subscriptionOption?: string,
+      subscriptionDays?: number,
+    ) => {
+      setItems((prevItems) => {
+        const existingItemIndex = prevItems.findIndex(
+          (item) => item.product.id === product.id && item.subscriptionOption === subscriptionOption,
+        )
 
-      let updatedItems
+        let updatedItems
 
-      if (existingItemIndex >= 0) {
-        // Update existing item
-        updatedItems = [...prevItems]
-        if (subscriptionOption) {
-          updatedItems[existingItemIndex] = {
-            ...updatedItems[existingItemIndex],
-            subscriptionOption,
-            subscriptionDays,
+        if (existingItemIndex >= 0) {
+          // Update existing item
+          updatedItems = [...prevItems]
+          if (subscriptionOption) {
+            updatedItems[existingItemIndex] = {
+              ...updatedItems[existingItemIndex],
+              subscriptionOption,
+              subscriptionDays,
+            }
+          } else {
+            updatedItems[existingItemIndex] = {
+              ...updatedItems[existingItemIndex],
+              quantity: updatedItems[existingItemIndex].quantity + quantity,
+            }
           }
         } else {
-          updatedItems[existingItemIndex] = {
-            ...updatedItems[existingItemIndex],
-            quantity: updatedItems[existingItemIndex].quantity + quantity,
-          }
+          // Add new item
+          updatedItems = [
+            ...prevItems,
+            {
+              product,
+              quantity,
+              ...(subscriptionOption && { subscriptionOption, subscriptionDays }),
+            },
+          ]
         }
-      } else {
-        // Add new item
-        updatedItems = [
-          ...prevItems,
-          {
-            product,
-            quantity,
-            ...(subscriptionOption && { subscriptionOption, subscriptionDays }),
-          },
-        ]
-      }
 
-      // Track the add to cart event
-      trackAddToCart(product, quantity)
+        // Track the add to cart event
+        trackAddToCart(product, quantity)
 
-      // Create a new order if we don't have one yet
-      if (!orderId && updatedItems.length > 0) {
-        const newOrderId = createOrder(updatedItems)
-        setOrderId(newOrderId)
-      }
+        // Create a new order if we don't have one yet
+        if (!orderId && updatedItems.length > 0) {
+          const newOrderId = createOrder(updatedItems)
+          setOrderId(newOrderId)
+        }
 
-      // Immediately update localStorage
-      localStorage.setItem("annapurna-cart", JSON.stringify(updatedItems))
+        // Immediately update localStorage
+        localStorage.setItem("annapurna-cart", JSON.stringify(updatedItems))
 
-      return updatedItems
-    })
+        return updatedItems
+      })
 
-    toast({
-      title: "Added to cart",
-      description: `${product.name} has been added to your cart.`,
-    })
-  }
+      toast({
+        title: "Added to cart",
+        description: `${product.name} has been added to your cart.`,
+      })
+    },
+    [orderId, toast, trackAddToCart, createOrder],
+  )
 
   // Update item quantity
-  const updateQuantity = (productId: string, quantity: number) => {
+  const updateQuantity = useCallback((productId: string, quantity: number) => {
     if (quantity < 1) return
 
     setItems((prevItems) => {
       const updatedItems = prevItems.map((item) => (item.product.id === productId ? { ...item, quantity } : item))
       return updatedItems
     })
-  }
+  }, [])
 
   // Update subscription details
-  const updateSubscription = (productId: string, subscriptionOption: string, subscriptionDays: number) => {
+  const updateSubscription = useCallback((productId: string, subscriptionOption: string, subscriptionDays: number) => {
     setItems((prevItems) =>
       prevItems.map((item) =>
         item.product.id === productId ? { ...item, subscriptionOption, subscriptionDays } : item,
       ),
     )
-  }
+  }, [])
 
   // Remove item from cart
-  const removeItem = (productId: string, subscriptionOption?: string) => {
-    setItems((prevItems) => {
-      // Find the item to remove for tracking
-      const itemToRemove = prevItems.find(
-        (item) =>
-          item.product.id === productId && (subscriptionOption ? item.subscriptionOption === subscriptionOption : true),
-      )
-
-      if (itemToRemove) {
-        // Track the remove from cart event
-        trackRemoveFromCart(itemToRemove.product)
-      }
-
-      if (subscriptionOption) {
-        // Remove specific subscription option
-        return prevItems.filter(
-          (item) => !(item.product.id === productId && item.subscriptionOption === subscriptionOption),
+  const removeItem = useCallback(
+    (productId: string, subscriptionOption?: string) => {
+      setItems((prevItems) => {
+        // Find the item to remove for tracking
+        const itemToRemove = prevItems.find(
+          (item) =>
+            item.product.id === productId &&
+            (subscriptionOption ? item.subscriptionOption === subscriptionOption : true),
         )
-      } else {
-        // Remove all instances of this product
-        return prevItems.filter((item) => item.product.id !== productId)
-      }
-    })
 
-    toast({
-      title: "Removed from cart",
-      description: "Item has been removed from your cart.",
-    })
-  }
+        if (itemToRemove) {
+          // Track the remove from cart event
+          trackRemoveFromCart(itemToRemove.product)
+        }
+
+        if (subscriptionOption) {
+          // Remove specific subscription option
+          return prevItems.filter(
+            (item) => !(item.product.id === productId && item.subscriptionOption === subscriptionOption),
+          )
+        } else {
+          // Remove all instances of this product
+          return prevItems.filter((item) => item.product.id !== productId)
+        }
+      })
+
+      toast({
+        title: "Removed from cart",
+        description: "Item has been removed from your cart.",
+      })
+    },
+    [toast, trackRemoveFromCart],
+  )
 
   // Clear cart
-  const clearCart = () => {
+  const clearCart = useCallback(() => {
     setItems([])
     setOrderId(null)
-  }
+  }, [])
 
-  // Add the updateDeliveryFee function to the context value
-  return (
-    <CartContext.Provider
-      value={{
-        items,
-        addItem,
-        updateQuantity,
-        removeItem,
-        updateSubscription,
-        clearCart,
-        subtotal,
-        deliveryFee,
-        total,
-        itemCount,
-        orderId,
-        updateDeliveryFee,
-      }}
-    >
-      {children}
-    </CartContext.Provider>
+  // Create context value with memoization
+  const contextValue = useMemo(
+    () => ({
+      items,
+      addItem,
+      updateQuantity,
+      removeItem,
+      updateSubscription,
+      clearCart,
+      subtotal,
+      deliveryFee,
+      total,
+      itemCount,
+      orderId,
+      updateDeliveryFee,
+    }),
+    [
+      items,
+      addItem,
+      updateQuantity,
+      removeItem,
+      updateSubscription,
+      clearCart,
+      subtotal,
+      deliveryFee,
+      total,
+      itemCount,
+      orderId,
+      updateDeliveryFee,
+    ],
   )
+
+  return <CartContext.Provider value={contextValue}>{children}</CartContext.Provider>
 }
 
 export function useCart() {

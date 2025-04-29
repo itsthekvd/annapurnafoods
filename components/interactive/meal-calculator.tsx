@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -33,6 +33,18 @@ function NumberSelector({
   max: number
   label: string
 }) {
+  const handleDecrement = useCallback(() => {
+    if (value > min) onChange(value - 1)
+  }, [value, min, onChange])
+
+  const handleIncrement = useCallback(() => {
+    if (value < max) onChange(value + 1)
+  }, [value, max, onChange])
+
+  const progressPercentage = useMemo(() => {
+    return ((value - min) / (max - min)) * 100
+  }, [value, min, max])
+
   return (
     <div className="mt-6">
       <Label className="mb-2 block">{label}</Label>
@@ -41,7 +53,7 @@ function NumberSelector({
           type="button"
           variant="outline"
           size="icon"
-          onClick={() => value > min && onChange(value - 1)}
+          onClick={handleDecrement}
           disabled={value <= min}
           className="h-10 w-10 rounded-full"
         >
@@ -52,7 +64,7 @@ function NumberSelector({
           <div className="relative h-10 bg-gray-100 rounded-full">
             <div
               className="absolute top-0 left-0 h-full bg-amber-200 rounded-full transition-all"
-              style={{ width: `${((value - min) / (max - min)) * 100}%` }}
+              style={{ width: `${progressPercentage}%` }}
             ></div>
 
             <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center">
@@ -65,7 +77,7 @@ function NumberSelector({
           type="button"
           variant="outline"
           size="icon"
-          onClick={() => value < max && onChange(value + 1)}
+          onClick={handleIncrement}
           disabled={value >= max}
           className="h-10 w-10 rounded-full"
         >
@@ -84,6 +96,8 @@ export default function MealCalculator({ isHeroWidget = false }: MealCalculatorP
   const router = useRouter()
   const { addItem, clearCart } = useCart()
   const { trackEvent } = useTracking()
+  const { toast } = useToast()
+
   const [step, setStep] = useState(1)
   const [mealType, setMealType] = useState("brunch")
   const [subscriptionOption, setSubscriptionOption] = useState("one-time")
@@ -92,7 +106,9 @@ export default function MealCalculator({ isHeroWidget = false }: MealCalculatorP
   const [showResults, setShowResults] = useState(false)
   const [savings, setSavings] = useState(0)
   const [isAddingToCart, setIsAddingToCart] = useState(false)
+
   const addToCartTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
   const [deliveryDate, setDeliveryDate] = useState<Date>(() => {
     // Calculate the next available delivery date (24 hours from now)
     const now = new Date()
@@ -106,26 +122,24 @@ export default function MealCalculator({ isHeroWidget = false }: MealCalculatorP
     return nextDate
   })
 
-  const { toast } = useToast()
-
   // Get the regular product price based on the selected meal type
-  const getProductPrice = () => {
+  const getProductPrice = useCallback(() => {
     const productId = mealType === "brunch" ? "brunch" : "dinner"
     const product = products.find((p) => p.id === productId)
     return product ? product.price : 0
-  }
+  }, [mealType])
 
-  // Add this function to get the number of days based on subscription option
-  const getDaysInSubscription = () => {
+  // Get the number of days based on subscription option
+  const getDaysInSubscription = useCallback(() => {
     const option = subscriptionOptions.find((opt) => opt.id === subscriptionOption)
     return option ? option.durationInDays : 1
-  }
+  }, [subscriptionOption])
 
-  // Add this function to get the discount percentage
-  const getDiscountPercentage = () => {
+  // Get the discount percentage
+  const getDiscountPercentage = useCallback(() => {
     const option = subscriptionOptions.find((opt) => opt.id === subscriptionOption)
     return option ? option.discountPercentage : 0
-  }
+  }, [subscriptionOption])
 
   // Clean up timeout on unmount
   useEffect(() => {
@@ -154,7 +168,7 @@ export default function MealCalculator({ isHeroWidget = false }: MealCalculatorP
     } else {
       setSavings(0)
     }
-  }, [subscriptionOption, people, duration, mealType])
+  }, [subscriptionOption, people, duration, mealType, getProductPrice, getDiscountPercentage, getDaysInSubscription])
 
   // Update the delivery date when meal type changes
   useEffect(() => {
@@ -170,7 +184,7 @@ export default function MealCalculator({ isHeroWidget = false }: MealCalculatorP
     setDeliveryDate(nextDate)
   }, [mealType])
 
-  const handleNext = () => {
+  const handleNext = useCallback(() => {
     if (step < 3) {
       setStep(step + 1)
 
@@ -191,15 +205,15 @@ export default function MealCalculator({ isHeroWidget = false }: MealCalculatorP
         duration: subscriptionOption !== "one-time" ? duration : 1,
       })
     }
-  }
+  }, [step, trackEvent, mealType, subscriptionOption, people, duration])
 
-  const handleBack = () => {
+  const handleBack = useCallback(() => {
     if (step > 1) {
       setStep(step - 1)
     }
-  }
+  }, [step])
 
-  const handleAddToCart = async () => {
+  const handleAddToCart = useCallback(async () => {
     if (isAddingToCart) return
     setIsAddingToCart(true)
 
@@ -284,10 +298,319 @@ export default function MealCalculator({ isHeroWidget = false }: MealCalculatorP
     } finally {
       setIsAddingToCart(false)
     }
-  }
+  }, [
+    isAddingToCart,
+    clearCart,
+    mealType,
+    deliveryDate,
+    subscriptionOption,
+    people,
+    addItem,
+    toast,
+    trackEvent,
+    duration,
+    getProductPrice,
+    getDiscountPercentage,
+    getDaysInSubscription,
+  ])
 
   // Simplified card style for hero widget
   const cardStyle = isHeroWidget ? "border-none shadow-lg bg-white" : "border-amber-200"
+
+  // Selected subscription option details
+  const selectedSubscriptionOption = useMemo(() => {
+    return subscriptionOptions.find((opt) => opt.id === subscriptionOption)
+  }, [subscriptionOption])
+
+  // Calculate total price
+  const totalPrice = useMemo(() => {
+    if (subscriptionOption !== "one-time") {
+      const basePrice = getProductPrice()
+      const discountPercentage = getDiscountPercentage()
+      const daysInSubscription = getDaysInSubscription()
+      return basePrice * (1 - discountPercentage / 100) * daysInSubscription * duration * people
+    } else {
+      return getProductPrice() * people
+    }
+  }, [subscriptionOption, getProductPrice, getDiscountPercentage, getDaysInSubscription, duration, people])
+
+  // Render step 1: Meal Type
+  const renderMealTypeStep = () => (
+    <div>
+      <h3 className="text-lg md:text-xl font-semibold mb-4 md:mb-6 text-amber-800">
+        What type of meal are you looking for?
+      </h3>
+      <RadioGroup value={mealType} onValueChange={setMealType} className="space-y-3 md:space-y-4">
+        <div className="flex items-center space-x-2 border p-3 md:p-4 rounded-lg hover:bg-amber-100 cursor-pointer">
+          <RadioGroupItem value="brunch" id="brunch" />
+          <Label htmlFor="brunch" className="flex-1 cursor-pointer">
+            <div className="font-medium">Brunch</div>
+            <div className="text-sm text-gray-600">Delivered at 8:30 AM</div>
+          </Label>
+        </div>
+        <div className="flex items-center space-x-2 border p-3 md:p-4 rounded-lg hover:bg-amber-100 cursor-pointer">
+          <RadioGroupItem value="dinner" id="dinner" />
+          <Label htmlFor="dinner" className="flex-1 cursor-pointer">
+            <div className="font-medium">Dinner</div>
+            <div className="text-sm text-gray-600">Delivered at 8:30 PM</div>
+          </Label>
+        </div>
+      </RadioGroup>
+    </div>
+  )
+
+  // Render step 2: Subscription Plan
+  const renderSubscriptionStep = () => (
+    <div>
+      <h3 className="text-lg md:text-xl font-semibold mb-4 md:mb-6 text-amber-800">Choose your plan</h3>
+      <div className="space-y-4">
+        <Select value={subscriptionOption} onValueChange={setSubscriptionOption}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select a plan" />
+          </SelectTrigger>
+          <SelectContent>
+            {subscriptionOptions.map((option) => (
+              <SelectItem key={option.id} value={option.id}>
+                {option.name} {option.discountPercentage > 0 && `(${option.discountPercentage}% off)`}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <div className="text-sm text-gray-600 mt-2">
+          {subscriptionOption !== "one-time" ? (
+            <div className="bg-amber-50 p-3 rounded-md">
+              <p className="font-medium text-amber-800">{selectedSubscriptionOption?.name}</p>
+              <p>{selectedSubscriptionOption?.description}</p>
+              <p className="mt-1">
+                <span className="font-medium">Duration:</span> {getDaysInSubscription()} days
+              </p>
+              {getDiscountPercentage() > 0 && (
+                <p className="text-green-600">
+                  <span className="font-medium">Discount:</span> {getDiscountPercentage()}% off regular price
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="bg-gray-50 p-3 rounded-md">
+              <p className="font-medium">One-time Order</p>
+              <p>Perfect for trying our meals without commitment.</p>
+            </div>
+          )}
+        </div>
+
+        {subscriptionOption !== "one-time" && (
+          <NumberSelector
+            value={duration}
+            onChange={setDuration}
+            min={1}
+            max={12}
+            label="Subscription Duration (months)"
+          />
+        )}
+      </div>
+    </div>
+  )
+
+  // Render step 3: People Count
+  const renderPeopleStep = () => (
+    <div>
+      <h3 className="text-lg md:text-xl font-semibold mb-4 md:mb-6 text-amber-800">
+        {subscriptionOption === "one-time" ? "How many meals would you like?" : "How many people are you ordering for?"}
+      </h3>
+      <NumberSelector
+        value={people}
+        onChange={setPeople}
+        min={1}
+        max={10}
+        label={subscriptionOption === "one-time" ? "Number of Meals" : "Number of People"}
+      />
+    </div>
+  )
+
+  // Render results
+  const renderResults = () => (
+    <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5 }}>
+      <Card className={`${cardStyle} overflow-hidden`}>
+        <div className="bg-amber-700 text-white p-3 md:p-4 text-center">
+          <h3 className="text-lg md:text-xl font-bold">Your Personalized Meal Plan</h3>
+        </div>
+        <CardContent className="p-4 md:p-6 lg:p-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+            <div>
+              <h4 className="font-semibold text-base md:text-lg mb-3 md:mb-4 flex items-center">
+                <Utensils className="mr-2 h-4 w-4 md:h-5 md:w-5 text-amber-700" />
+                Plan Details
+              </h4>
+              <ul className="space-y-2 md:space-y-3">
+                <li className="flex justify-between">
+                  <span className="text-gray-600">Meal Type:</span>
+                  <span className="font-medium">{mealType === "brunch" ? "Brunch" : "Dinner"}</span>
+                </li>
+                <li className="flex justify-between">
+                  <span className="text-gray-600">Plan Type:</span>
+                  <span className="font-medium">
+                    {subscriptionOption !== "one-time" ? "Subscription" : "One-time Order"}
+                  </span>
+                </li>
+                {subscriptionOption !== "one-time" && (
+                  <li className="flex justify-between">
+                    <span className="text-gray-600">Duration:</span>
+                    <span className="font-medium">
+                      {duration} month{duration > 1 ? "s" : ""}
+                    </span>
+                  </li>
+                )}
+                <li className="flex justify-between">
+                  <span className="text-gray-600">{subscriptionOption === "one-time" ? "Meals:" : "People:"}</span>
+                  <span className="font-medium">{people}</span>
+                </li>
+              </ul>
+            </div>
+
+            <div>
+              <h4 className="font-semibold text-base md:text-lg mb-3 md:mb-4 flex items-center">
+                <Calendar className="mr-2 h-4 w-4 md:h-5 md:w-5 text-amber-700" />
+                Delivery Schedule
+              </h4>
+              <ul className="space-y-2 md:space-y-3">
+                <li className="flex justify-between">
+                  <span className="text-gray-600">Delivery Time:</span>
+                  <span className="font-medium">{mealType === "brunch" ? "8:30 AM" : "8:30 PM"}</span>
+                </li>
+                <li className="flex justify-between">
+                  <span className="text-gray-600">Frequency:</span>
+                  <span className="font-medium">
+                    {subscriptionOption !== "one-time" ? selectedSubscriptionOption?.description : "One-time"}
+                  </span>
+                </li>
+                <li className="flex justify-between items-center">
+                  <span className="text-gray-600">First Delivery:</span>
+                  {subscriptionOption !== "one-time" ? (
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" size="sm" className="text-sm font-medium">
+                          {format(deliveryDate, "EEE, MMM d, h:mm a")}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="end">
+                        <CalendarComponent
+                          mode="single"
+                          selected={deliveryDate}
+                          onSelect={(date) => {
+                            if (date) {
+                              // Keep the same time (8:30 AM/PM) but change the date
+                              const newDate = new Date(date)
+                              const hour = mealType === "brunch" ? 8 : 20
+                              newDate.setHours(hour, 30, 0, 0)
+                              setDeliveryDate(newDate)
+                            }
+                          }}
+                          disabled={(date) => {
+                            // Disable dates in the past and today (need at least 24h notice)
+                            const tomorrow = startOfDay(addDays(new Date(), 1))
+                            return isBefore(date, tomorrow)
+                          }}
+                          initialFocus
+                          className="rounded-md border"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  ) : (
+                    <span className="font-medium">{format(deliveryDate, "EEE, MMM d, h:mm a")}</span>
+                  )}
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="mt-6 md:mt-8 border-t pt-4 md:pt-6">
+            <div className="flex justify-between items-center mb-3 md:mb-4">
+              <h4 className="font-semibold text-base md:text-lg flex items-center">
+                <Clock className="mr-2 h-4 w-4 md:h-5 md:w-5 text-amber-700" />
+                Price Breakdown
+              </h4>
+            </div>
+
+            <div className="space-y-2">
+              {subscriptionOption !== "one-time" ? (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Plan:</span>
+                    <span className="font-medium">{selectedSubscriptionOption?.name}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Price per meal:</span>
+                    <span className="font-medium">
+                      ₹{(getProductPrice() * (1 - getDiscountPercentage() / 100)).toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Days per month:</span>
+                    <span className="font-medium">{getDaysInSubscription()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Monthly Cost:</span>
+                    <span className="font-medium">
+                      ₹
+                      {(
+                        getProductPrice() *
+                        (1 - getDiscountPercentage() / 100) *
+                        getDaysInSubscription() *
+                        people
+                      ).toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">
+                      Total ({duration} month{duration > 1 ? "s" : ""}):
+                    </span>
+                    <span className="font-medium">₹{totalPrice.toFixed(2)}</span>
+                  </div>
+                  {savings > 0 && (
+                    <div className="flex justify-between text-green-600">
+                      <span>Your Savings:</span>
+                      <span className="font-medium">₹{savings}</span>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">One-time Order:</span>
+                    <span className="font-medium">
+                      ₹{getProductPrice()} × {people} meal(s)
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Total:</span>
+                    <span className="font-medium">₹{totalPrice.toFixed(2)}</span>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-6 md:mt-8 flex flex-col sm:flex-row gap-3 md:gap-4">
+            <Button
+              onClick={() => setShowResults(false)}
+              variant="outline"
+              className="flex-1 border-amber-700 text-amber-700"
+            >
+              Modify Plan
+            </Button>
+            <Button
+              onClick={handleAddToCart}
+              className="flex-1 bg-amber-700 hover:bg-amber-800"
+              disabled={isAddingToCart}
+            >
+              {isAddingToCart ? "Adding..." : "Add to Cart"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
+  )
 
   return (
     <section className={isHeroWidget ? "" : "py-16 bg-amber-50"}>
@@ -335,103 +658,9 @@ export default function MealCalculator({ isHeroWidget = false }: MealCalculatorP
                     exit={{ opacity: 0, x: -20 }}
                     transition={{ duration: 0.3 }}
                   >
-                    {step === 1 && (
-                      <div>
-                        <h3 className="text-lg md:text-xl font-semibold mb-4 md:mb-6 text-amber-800">
-                          What type of meal are you looking for?
-                        </h3>
-                        <RadioGroup value={mealType} onValueChange={setMealType} className="space-y-3 md:space-y-4">
-                          <div className="flex items-center space-x-2 border p-3 md:p-4 rounded-lg hover:bg-amber-100 cursor-pointer">
-                            <RadioGroupItem value="brunch" id="brunch" />
-                            <Label htmlFor="brunch" className="flex-1 cursor-pointer">
-                              <div className="font-medium">Brunch</div>
-                              <div className="text-sm text-gray-600">Delivered at 8:30 AM</div>
-                            </Label>
-                          </div>
-                          <div className="flex items-center space-x-2 border p-3 md:p-4 rounded-lg hover:bg-amber-100 cursor-pointer">
-                            <RadioGroupItem value="dinner" id="dinner" />
-                            <Label htmlFor="dinner" className="flex-1 cursor-pointer">
-                              <div className="font-medium">Dinner</div>
-                              <div className="text-sm text-gray-600">Delivered at 8:30 PM</div>
-                            </Label>
-                          </div>
-                        </RadioGroup>
-                      </div>
-                    )}
-
-                    {step === 2 && (
-                      <div>
-                        <h3 className="text-lg md:text-xl font-semibold mb-4 md:mb-6 text-amber-800">
-                          Choose your plan
-                        </h3>
-                        <div className="space-y-4">
-                          <Select value={subscriptionOption} onValueChange={setSubscriptionOption}>
-                            <SelectTrigger className="w-full">
-                              <SelectValue placeholder="Select a plan" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {subscriptionOptions.map((option) => (
-                                <SelectItem key={option.id} value={option.id}>
-                                  {option.name} {option.discountPercentage > 0 && `(${option.discountPercentage}% off)`}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-
-                          <div className="text-sm text-gray-600 mt-2">
-                            {subscriptionOption !== "one-time" ? (
-                              <div className="bg-amber-50 p-3 rounded-md">
-                                <p className="font-medium text-amber-800">
-                                  {subscriptionOptions.find((o) => o.id === subscriptionOption)?.name}
-                                </p>
-                                <p>{subscriptionOptions.find((o) => o.id === subscriptionOption)?.description}</p>
-                                <p className="mt-1">
-                                  <span className="font-medium">Duration:</span> {getDaysInSubscription()} days
-                                </p>
-                                {getDiscountPercentage() > 0 && (
-                                  <p className="text-green-600">
-                                    <span className="font-medium">Discount:</span> {getDiscountPercentage()}% off
-                                    regular price
-                                  </p>
-                                )}
-                              </div>
-                            ) : (
-                              <div className="bg-gray-50 p-3 rounded-md">
-                                <p className="font-medium">One-time Order</p>
-                                <p>Perfect for trying our meals without commitment.</p>
-                              </div>
-                            )}
-                          </div>
-
-                          {subscriptionOption !== "one-time" && (
-                            <NumberSelector
-                              value={duration}
-                              onChange={setDuration}
-                              min={1}
-                              max={12}
-                              label="Subscription Duration (months)"
-                            />
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {step === 3 && (
-                      <div>
-                        <h3 className="text-lg md:text-xl font-semibold mb-4 md:mb-6 text-amber-800">
-                          {subscriptionOption === "one-time"
-                            ? "How many meals would you like?"
-                            : "How many people are you ordering for?"}
-                        </h3>
-                        <NumberSelector
-                          value={people}
-                          onChange={setPeople}
-                          min={1}
-                          max={10}
-                          label={subscriptionOption === "one-time" ? "Number of Meals" : "Number of People"}
-                        />
-                      </div>
-                    )}
+                    {step === 1 && renderMealTypeStep()}
+                    {step === 2 && renderSubscriptionStep()}
+                    {step === 3 && renderPeopleStep()}
                   </motion.div>
                 </AnimatePresence>
 
@@ -451,205 +680,7 @@ export default function MealCalculator({ isHeroWidget = false }: MealCalculatorP
               </CardContent>
             </Card>
           ) : (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.5 }}
-            >
-              <Card className={`${cardStyle} overflow-hidden`}>
-                <div className="bg-amber-700 text-white p-3 md:p-4 text-center">
-                  <h3 className="text-lg md:text-xl font-bold">Your Personalized Meal Plan</h3>
-                </div>
-                <CardContent className="p-4 md:p-6 lg:p-8">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                    <div>
-                      <h4 className="font-semibold text-base md:text-lg mb-3 md:mb-4 flex items-center">
-                        <Utensils className="mr-2 h-4 w-4 md:h-5 md:w-5 text-amber-700" />
-                        Plan Details
-                      </h4>
-                      <ul className="space-y-2 md:space-y-3">
-                        <li className="flex justify-between">
-                          <span className="text-gray-600">Meal Type:</span>
-                          <span className="font-medium">{mealType === "brunch" ? "Brunch" : "Dinner"}</span>
-                        </li>
-                        <li className="flex justify-between">
-                          <span className="text-gray-600">Plan Type:</span>
-                          <span className="font-medium">
-                            {subscriptionOption !== "one-time" ? "Subscription" : "One-time Order"}
-                          </span>
-                        </li>
-                        {subscriptionOption !== "one-time" && (
-                          <li className="flex justify-between">
-                            <span className="text-gray-600">Duration:</span>
-                            <span className="font-medium">
-                              {duration} month{duration > 1 ? "s" : ""}
-                            </span>
-                          </li>
-                        )}
-                        <li className="flex justify-between">
-                          <span className="text-gray-600">
-                            {subscriptionOption === "one-time" ? "Meals:" : "People:"}
-                          </span>
-                          <span className="font-medium">{people}</span>
-                        </li>
-                      </ul>
-                    </div>
-
-                    <div>
-                      <h4 className="font-semibold text-base md:text-lg mb-3 md:mb-4 flex items-center">
-                        <Calendar className="mr-2 h-4 w-4 md:h-5 md:w-5 text-amber-700" />
-                        Delivery Schedule
-                      </h4>
-                      <ul className="space-y-2 md:space-y-3">
-                        <li className="flex justify-between">
-                          <span className="text-gray-600">Delivery Time:</span>
-                          <span className="font-medium">{mealType === "brunch" ? "8:30 AM" : "8:30 PM"}</span>
-                        </li>
-                        <li className="flex justify-between">
-                          <span className="text-gray-600">Frequency:</span>
-                          <span className="font-medium">
-                            {subscriptionOption !== "one-time"
-                              ? subscriptionOptions.find((o) => o.id === subscriptionOption)?.description
-                              : "One-time"}
-                          </span>
-                        </li>
-                        <li className="flex justify-between items-center">
-                          <span className="text-gray-600">First Delivery:</span>
-                          {subscriptionOption !== "one-time" ? (
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <Button variant="outline" size="sm" className="text-sm font-medium">
-                                  {format(deliveryDate, "EEE, MMM d, h:mm a")}
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-auto p-0" align="end">
-                                <CalendarComponent
-                                  mode="single"
-                                  selected={deliveryDate}
-                                  onSelect={(date) => {
-                                    if (date) {
-                                      // Keep the same time (8:30 AM/PM) but change the date
-                                      const newDate = new Date(date)
-                                      const hour = mealType === "brunch" ? 8 : 20
-                                      newDate.setHours(hour, 30, 0, 0)
-                                      setDeliveryDate(newDate)
-                                    }
-                                  }}
-                                  disabled={(date) => {
-                                    // Disable dates in the past and today (need at least 24h notice)
-                                    const tomorrow = startOfDay(addDays(new Date(), 1))
-                                    return isBefore(date, tomorrow)
-                                  }}
-                                  initialFocus
-                                  className="rounded-md border"
-                                />
-                              </PopoverContent>
-                            </Popover>
-                          ) : (
-                            <span className="font-medium">{format(deliveryDate, "EEE, MMM d, h:mm a")}</span>
-                          )}
-                        </li>
-                      </ul>
-                    </div>
-                  </div>
-
-                  <div className="mt-6 md:mt-8 border-t pt-4 md:pt-6">
-                    <div className="flex justify-between items-center mb-3 md:mb-4">
-                      <h4 className="font-semibold text-base md:text-lg flex items-center">
-                        <Clock className="mr-2 h-4 w-4 md:h-5 md:w-5 text-amber-700" />
-                        Price Breakdown
-                      </h4>
-                    </div>
-
-                    <div className="space-y-2">
-                      {subscriptionOption !== "one-time" ? (
-                        <>
-                          <div className="flex justify-between">
-                            <span className="text-gray-600">Plan:</span>
-                            <span className="font-medium">
-                              {subscriptionOptions.find((o) => o.id === subscriptionOption)?.name}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-600">Price per meal:</span>
-                            <span className="font-medium">
-                              ₹{(getProductPrice() * (1 - getDiscountPercentage() / 100)).toFixed(2)}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-600">Days per month:</span>
-                            <span className="font-medium">{getDaysInSubscription()}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-600">Monthly Cost:</span>
-                            <span className="font-medium">
-                              ₹
-                              {(
-                                getProductPrice() *
-                                (1 - getDiscountPercentage() / 100) *
-                                getDaysInSubscription() *
-                                people
-                              ).toFixed(2)}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-600">
-                              Total ({duration} month{duration > 1 ? "s" : ""}):
-                            </span>
-                            <span className="font-medium">
-                              ₹
-                              {(
-                                getProductPrice() *
-                                (1 - getDiscountPercentage() / 100) *
-                                getDaysInSubscription() *
-                                people *
-                                duration
-                              ).toFixed(2)}
-                            </span>
-                          </div>
-                          {savings > 0 && (
-                            <div className="flex justify-between text-green-600">
-                              <span>Your Savings:</span>
-                              <span className="font-medium">₹{savings}</span>
-                            </div>
-                          )}
-                        </>
-                      ) : (
-                        <>
-                          <div className="flex justify-between">
-                            <span className="text-gray-600">One-time Order:</span>
-                            <span className="font-medium">
-                              ₹{getProductPrice()} × {people} meal(s)
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-600">Total:</span>
-                            <span className="font-medium">₹{(getProductPrice() * people).toFixed(2)}</span>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="mt-6 md:mt-8 flex flex-col sm:flex-row gap-3 md:gap-4">
-                    <Button
-                      onClick={() => setShowResults(false)}
-                      variant="outline"
-                      className="flex-1 border-amber-700 text-amber-700"
-                    >
-                      Modify Plan
-                    </Button>
-                    <Button
-                      onClick={handleAddToCart}
-                      className="flex-1 bg-amber-700 hover:bg-amber-800"
-                      disabled={isAddingToCart}
-                    >
-                      {isAddingToCart ? "Adding..." : "Add to Cart"}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
+            renderResults()
           )}
         </div>
       </div>
