@@ -4,155 +4,46 @@ import { useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
 import OrderStorage from "@/lib/order-storage"
 import WebhookService from "@/lib/webhook-service"
-import { Loader2, CheckCircle, XCircle, AlertTriangle } from "lucide-react"
+import { Loader2, CheckCircle, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ORDER_STATUS } from "@/lib/types"
-import { useToast } from "@/hooks/use-toast"
 
 export default function PhonePeCallbackPage() {
   const router = useRouter()
-  const [status, setStatus] = useState<"loading" | "success" | "failure" | "pending">("loading")
+  const [status, setStatus] = useState<"loading" | "success" | "failure">("loading")
   const [message, setMessage] = useState("Verifying your payment...")
   const [couponCode, setCouponCode] = useState<string | null>(null)
-  const { toast } = useToast()
-  const [paymentDetails, setPaymentDetails] = useState<any>(null)
 
   useEffect(() => {
-    const checkPaymentStatus = async () => {
-      try {
-        // Try to get coupon code from session storage
-        try {
-          const storedCouponInfo = sessionStorage.getItem("appliedCoupon")
-          if (storedCouponInfo) {
-            const parsedCoupon = JSON.parse(storedCouponInfo)
-            setCouponCode(parsedCoupon.code)
-          }
-        } catch (e) {
-          console.error("Failed to parse coupon info:", e)
-        }
-
-        // Get the status from the URL
-        const searchParams = new URLSearchParams(window.location.search)
-        const code = searchParams.get("code")
-        const status = searchParams.get("status") // PhonePe sometimes uses 'status' instead of 'code'
-        const transactionId = searchParams.get("transactionId") || searchParams.get("txnId")
-        const merchantTransactionId = searchParams.get("merchantTransactionId")
-
-        console.log("PhonePe callback received:", {
-          code,
-          status,
-          transactionId,
-          merchantTransactionId,
-          searchParams: Object.fromEntries(searchParams.entries()),
-        })
-
-        // Check payment status - PhonePe can return success in multiple formats
-        const paymentStatus = code || status || ""
-        const isSuccess =
-          paymentStatus.toUpperCase().includes("SUCCESS") ||
-          paymentStatus === "PAYMENT_SUCCESS" ||
-          paymentStatus === "SUCCESS" ||
-          paymentStatus === "COMPLETED" ||
-          paymentStatus === "TXN_SUCCESS"
-
-        // Check if we have a transaction ID which indicates success
-        const hasTransactionId = !!transactionId || !!merchantTransactionId
-
-        if (isSuccess || hasTransactionId) {
-          // Call the success handler
-          await handleSuccessfulPayment(transactionId, merchantTransactionId)
-        } else if (paymentStatus === "PAYMENT_ERROR" || paymentStatus === "FAILURE" || paymentStatus === "FAILED") {
-          // Show error message
-          toast({
-            title: "Payment Failed",
-            description: "Your payment was not completed. Please try again.",
-            variant: "destructive",
-          })
-
-          setStatus("failure")
-          setMessage("Your payment was not completed. Please try again.")
-
-          // Store the transaction details for retry
-          try {
-            const storedTransaction = sessionStorage.getItem("phonePeTransaction")
-            if (storedTransaction) {
-              sessionStorage.setItem("failedTransaction", storedTransaction)
-            }
-          } catch (error) {
-            console.error("Error storing failed transaction:", error)
-          }
-
-          // Redirect back to checkout after a delay
-          setTimeout(() => {
-            router.push("/checkout")
-          }, 3000)
-        } else if (code === "PAYMENT_PENDING" || code === "PENDING") {
-          // Handle pending status
-          toast({
-            title: "Payment Pending",
-            description: "Your payment is being processed. We'll update you once it's complete.",
-          })
-
-          setStatus("pending")
-          setMessage("Your payment is being processed. We'll update you once it's complete.")
-
-          // Redirect to checkout after a delay
-          setTimeout(() => {
-            router.push("/checkout")
-          }, 5000)
-        } else {
-          // Handle other statuses including cancellation
-          toast({
-            title: "Payment Cancelled",
-            description: "Your payment was cancelled. Please try again if you wish to complete your order.",
-            variant: "destructive",
-          })
-
-          setStatus("failure")
-          setMessage("Your payment was cancelled. Please try again if you wish to complete your order.")
-
-          // Store the transaction details for retry
-          try {
-            const storedTransaction = sessionStorage.getItem("phonePeTransaction")
-            if (storedTransaction) {
-              sessionStorage.setItem("failedTransaction", storedTransaction)
-            }
-          } catch (error) {
-            console.error("Error storing failed transaction:", error)
-          }
-
-          // Redirect back to checkout after a delay
-          setTimeout(() => {
-            router.push("/checkout")
-          }, 3000)
-        }
-      } catch (error) {
-        console.error("Error checking payment status:", error)
-        setStatus("failure")
-        setMessage("An error occurred while processing your payment. Please try again.")
-
-        // Redirect back to checkout after a delay
-        setTimeout(() => {
-          router.push("/checkout")
-        }, 3000)
+    // Try to get coupon code from session storage
+    try {
+      const storedCouponInfo = sessionStorage.getItem("appliedCoupon")
+      if (storedCouponInfo) {
+        const parsedCoupon = JSON.parse(storedCouponInfo)
+        setCouponCode(parsedCoupon.code)
       }
+    } catch (e) {
+      console.error("Failed to parse coupon info:", e)
     }
 
-    checkPaymentStatus()
-  }, [router, toast])
+    // Then process the payment
+    handleSuccessfulPayment()
+  }, [])
 
-  const handleSuccessfulPayment = async (txnId: string | null, merchantTransactionId: string | null) => {
+  const handleSuccessfulPayment = async () => {
     try {
-      console.log("Processing successful payment with txnId:", txnId, "merchantTransactionId:", merchantTransactionId)
+      // Get transaction ID from URL query parameters
+      const urlParams = new URLSearchParams(window.location.search)
+      const txnId = urlParams.get("txnId")
+
+      console.log("PhonePe callback received with txnId:", txnId)
 
       // Get stored transaction details
       const storedTransaction = sessionStorage.getItem("phonePeTransaction")
       if (!storedTransaction) {
-        console.log("No stored transaction found, attempting to proceed anyway")
-        setStatus("success")
-        setMessage("Payment successful! Redirecting to order confirmation...")
-
+        console.log("No stored transaction found, redirecting to success page anyway")
         // Even if we don't have stored details, redirect to success
+        setStatus("success")
         setTimeout(() => {
           window.location.href = "/checkout/success"
         }, 2000)
@@ -166,8 +57,7 @@ export default function PhonePeCallbackPage() {
       const paymentId = `phonepe_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`
 
       // Generate a unique order ID if one doesn't exist
-      const finalOrderId =
-        orderId || merchantTransactionId || txnId || `order_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`
+      const finalOrderId = orderId || txnId || `order_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`
 
       // Get location info and cart items from session storage
       let locationInfo = {}
@@ -187,18 +77,16 @@ export default function PhonePeCallbackPage() {
       const deliveryDate = sessionStorage.getItem("selectedDeliveryDate")
 
       // Store payment details for success page
-      const paymentDetails = {
-        paymentId,
-        orderId: finalOrderId,
-        amount,
-        date: new Date().toISOString(),
-        gateway: "PhonePe",
-        transactionId: txnId || merchantTransactionId,
-      }
-
-      setPaymentDetails(paymentDetails)
-
-      sessionStorage.setItem("paymentDetails", JSON.stringify(paymentDetails))
+      sessionStorage.setItem(
+        "paymentDetails",
+        JSON.stringify({
+          paymentId,
+          orderId: finalOrderId,
+          amount,
+          date: new Date().toISOString(),
+          gateway: "PhonePe",
+        }),
+      )
 
       // Store order details
       sessionStorage.setItem(
@@ -229,7 +117,6 @@ export default function PhonePeCallbackPage() {
         paymentInfo: {
           method: "PhonePe",
           transactionId: paymentId,
-          phonepeTransactionId: txnId || merchantTransactionId,
           amount: amount || 0,
         },
         items: cartItems.map((item) => ({
@@ -244,8 +131,6 @@ export default function PhonePeCallbackPage() {
         total: amount || 0,
         couponCode: couponCode || undefined,
       }
-
-      console.log("Saving order data:", completeOrderData)
 
       try {
         // Save order data to Supabase
@@ -272,7 +157,6 @@ export default function PhonePeCallbackPage() {
         sessionStorage.removeItem("phonePeTransaction")
         sessionStorage.removeItem("locationInfo")
         sessionStorage.removeItem("cartItems")
-        sessionStorage.removeItem("failedTransaction")
       } catch (error) {
         console.error("Error clearing storage:", error)
       }
@@ -289,9 +173,10 @@ export default function PhonePeCallbackPage() {
       setStatus("failure")
       setMessage("An error occurred while processing your payment")
 
-      // Even if there's an error, redirect to checkout page after a delay
+      // Even if there's an error, redirect to success page after a delay
+      // This ensures users don't get stuck
       setTimeout(() => {
-        window.location.href = "/checkout"
+        window.location.href = "/checkout/success"
       }, 3000)
     }
   }
@@ -311,40 +196,7 @@ export default function PhonePeCallbackPage() {
           <>
             <CheckCircle className="h-16 w-16 mx-auto mb-4 text-green-500" />
             <h1 className="text-2xl font-bold text-green-700 mb-2">Payment Successful!</h1>
-            <p className="text-gray-600 mb-4">Your order has been placed successfully.</p>
-            <p className="text-gray-600 mb-6">Redirecting you to the order confirmation page...</p>
-
-            {paymentDetails && (
-              <div className="bg-gray-50 p-4 rounded-lg max-w-md mx-auto mb-4 text-left">
-                <p className="text-sm text-gray-600">
-                  <strong>Order ID:</strong> {paymentDetails.orderId}
-                </p>
-                <p className="text-sm text-gray-600">
-                  <strong>Amount:</strong> ₹{paymentDetails.amount}
-                </p>
-                <p className="text-sm text-gray-600">
-                  <strong>Transaction ID:</strong> {paymentDetails.transactionId || "N/A"}
-                </p>
-              </div>
-            )}
-
-            <Button
-              onClick={() => (window.location.href = "/checkout/success")}
-              className="bg-amber-700 hover:bg-amber-800"
-            >
-              View Order Details
-            </Button>
-          </>
-        )}
-
-        {status === "pending" && (
-          <>
-            <AlertTriangle className="h-16 w-16 mx-auto mb-4 text-amber-500" />
-            <h1 className="text-2xl font-bold text-amber-700 mb-2">Payment Pending</h1>
-            <p className="text-gray-600 mb-4">{message}</p>
-            <Button onClick={() => (window.location.href = "/checkout")} className="bg-amber-700 hover:bg-amber-800">
-              Return to Checkout
-            </Button>
+            <p className="text-gray-600">Redirecting you to the order confirmation page...</p>
           </>
         )}
 

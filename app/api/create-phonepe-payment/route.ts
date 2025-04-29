@@ -23,7 +23,7 @@ export async function POST(request: Request) {
       merchantTransactionId: merchantTransactionId,
       merchantUserId: `MUID_${Date.now()}`,
       amount: amount * 100, // PhonePe expects amount in paise
-      redirectUrl: `${origin}/checkout/phonepe-callback`,
+      redirectUrl: `${origin}/checkout/phonepe-callback?txnId=${merchantTransactionId}`,
       redirectMode: "REDIRECT",
       callbackUrl: `${origin}/api/phonepe-callback`,
       mobileNumber: customerInfo.phone,
@@ -32,7 +32,6 @@ export async function POST(request: Request) {
       },
     }
 
-    console.log("PhonePe payload:", payload)
     console.log("PhonePe redirect URL:", payload.redirectUrl)
 
     // Convert payload to base64
@@ -59,7 +58,6 @@ export async function POST(request: Request) {
     })
 
     const responseData = await response.json()
-    console.log("PhonePe API response:", responseData)
 
     if (!responseData.success) {
       console.error("PhonePe API error:", responseData)

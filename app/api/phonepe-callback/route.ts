@@ -1,13 +1,10 @@
 import { NextResponse } from "next/server"
 import { config } from "@/lib/config"
 import crypto from "crypto"
-import OrderStorage from "@/lib/order-storage"
-import { ORDER_STATUS } from "@/lib/types"
 
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    console.log("PhonePe callback received:", body)
 
     // Verify the callback signature
     const xVerify = request.headers.get("X-VERIFY")
@@ -37,7 +34,6 @@ export async function POST(request: Request) {
 
     // Decode the payload
     const decodedResponse = JSON.parse(Buffer.from(response, "base64").toString())
-    console.log("Decoded PhonePe response:", decodedResponse)
 
     // Process the payment status
     const { merchantId, merchantTransactionId, transactionId, amount, paymentState } = decodedResponse
@@ -47,46 +43,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid merchant ID" }, { status: 400 })
     }
 
-    // Determine the order status based on the payment state
-    // PhonePe can return success in multiple formats
-    let orderStatus = ORDER_STATUS.PAID_PENDING
-    const paymentStateUpper = (paymentState || "").toUpperCase()
+    // Check if the payment was successful
+    if (paymentState === "COMPLETED") {
+      // Payment was successful
+      // Update your database, send confirmation emails, etc.
 
-    if (
-      paymentStateUpper.includes("SUCCESS") ||
-      paymentStateUpper === "COMPLETED" ||
-      paymentStateUpper === "TXN_SUCCESS"
-    ) {
-      orderStatus = ORDER_STATUS.PAID_PENDING
-    } else if (paymentStateUpper.includes("FAIL") || paymentStateUpper === "FAILED") {
-      orderStatus = "payment_failed"
-    } else if (paymentStateUpper.includes("PEND") || paymentStateUpper === "PENDING") {
-      orderStatus = "payment_pending"
+      // Return a success response to PhonePe
+      return NextResponse.json({
+        success: true,
+        message: "Payment callback processed successfully",
+      })
+    } else {
+      // Payment failed or is pending
+      // Update your database accordingly
+
+      // Return a success response to PhonePe (we still acknowledge the callback)
+      return NextResponse.json({
+        success: true,
+        message: "Payment callback processed successfully",
+      })
     }
-
-    // Try to find the order by transaction ID
-    try {
-      const order = await OrderStorage.getOrderByPhonePeTransactionId(transactionId || merchantTransactionId)
-
-      if (order) {
-        // Update the order status
-        await OrderStorage.updateOrderStatus(order.id, orderStatus)
-        console.log(`Order ${order.id} status updated to ${orderStatus}`)
-      } else {
-        console.log(`No order found for transaction ID ${transactionId || merchantTransactionId}`)
-      }
-    } catch (error) {
-      console.error("Error updating order status:", error)
-    }
-
-    // Return a success response to PhonePe
-    return NextResponse.json({
-      success: true,
-      status: paymentState,
-      message: `Payment callback processed successfully. Status: ${paymentState}`,
-      transactionId,
-      merchantTransactionId,
-    })
   } catch (error) {
     console.error("Error processing PhonePe callback:", error)
     return NextResponse.json({ error: "Failed to process callback" }, { status: 500 })

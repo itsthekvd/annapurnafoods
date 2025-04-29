@@ -65,7 +65,6 @@ export interface OrderData {
   paymentInfo: {
     method: string
     transactionId?: string
-    phonepeTransactionId?: string
     amount: number
   }
   items: Array<{
@@ -87,11 +86,11 @@ export interface OrderData {
 
 // Order status constants
 export const ORDER_STATUS = {
-  PENDING: "pending",
-  PAID_PENDING: "paid_pending",
-  PROCESSING: "processing",
-  SHIPPED: "shipped",
-  DELIVERED: "delivered",
-  CANCELLED: "cancelled",
-  REFUNDED: "refunded",
+  PAID_PENDING: "order_paid_pending",
+  CONFIRMED: "order_confirmed",
+  PREPARING: "order_preparing",
+  PACKING: "order_packing",
+  EN_ROUTE: "order_en_route",
+  DELIVERED: "order_delivered",
+  TEST_ORDER: "test_order",
 }

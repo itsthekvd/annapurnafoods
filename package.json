@@ -61,8 +61,8 @@
     "@emotion/is-prop-valid": "latest",
     "framer-motion": "latest",
     "crypto": "latest",
-    "react-confetti": "latest",
-    "@supabase/supabase-js": "latest"
+    "@supabase/supabase-js": "latest",
+    "react-confetti": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",
