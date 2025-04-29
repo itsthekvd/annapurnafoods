@@ -18,7 +18,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast"
 import { playSound } from "@/lib/utils"
 import { useTracking } from "@/contexts/tracking-context"
-import { useCoupon } from "@/contexts/coupon-context"
 
 // Improved number selector component for mobile
 function NumberSelector({
@@ -108,7 +107,6 @@ export default function MealCalculator({ isHeroWidget = false }: MealCalculatorP
   })
 
   const { toast } = useToast()
-  const { appliedCoupon, calculateDiscountedPrice } = useCoupon()
 
   // Get the regular product price based on the selected meal type
   const getProductPrice = () => {
@@ -561,11 +559,6 @@ export default function MealCalculator({ isHeroWidget = false }: MealCalculatorP
                         <Clock className="mr-2 h-4 w-4 md:h-5 md:w-5 text-amber-700" />
                         Price Breakdown
                       </h4>
-                      {appliedCoupon && (
-                        <div className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">
-                          Coupon: {appliedCoupon.code}
-                        </div>
-                      )}
                     </div>
 
                     <div className="space-y-2">
@@ -580,20 +573,7 @@ export default function MealCalculator({ isHeroWidget = false }: MealCalculatorP
                           <div className="flex justify-between">
                             <span className="text-gray-600">Price per meal:</span>
                             <span className="font-medium">
-                              {appliedCoupon ? (
-                                <>
-                                  <span className="line-through text-gray-400 mr-2">
-                                    ₹{getProductPrice().toFixed(2)}
-                                  </span>
-                                  ₹
-                                  {(
-                                    calculateDiscountedPrice(getProductPrice()) *
-                                    (1 - getDiscountPercentage() / 100)
-                                  ).toFixed(2)}
-                                </>
-                              ) : (
-                                <>₹{(getProductPrice() * (1 - getDiscountPercentage() / 100)).toFixed(2)}</>
-                              )}
+                              ₹{(getProductPrice() * (1 - getDiscountPercentage() / 100)).toFixed(2)}
                             </span>
                           </div>
                           <div className="flex justify-between">
@@ -603,36 +583,13 @@ export default function MealCalculator({ isHeroWidget = false }: MealCalculatorP
                           <div className="flex justify-between">
                             <span className="text-gray-600">Monthly Cost:</span>
                             <span className="font-medium">
-                              {appliedCoupon ? (
-                                <>
-                                  <span className="line-through text-gray-400 mr-2">
-                                    ₹
-                                    {(
-                                      getProductPrice() *
-                                      (1 - getDiscountPercentage() / 100) *
-                                      getDaysInSubscription() *
-                                      people
-                                    ).toFixed(2)}
-                                  </span>
-                                  ₹
-                                  {(
-                                    calculateDiscountedPrice(getProductPrice()) *
-                                    (1 - getDiscountPercentage() / 100) *
-                                    getDaysInSubscription() *
-                                    people
-                                  ).toFixed(2)}
-                                </>
-                              ) : (
-                                <>
-                                  ₹
-                                  {(
-                                    getProductPrice() *
-                                    (1 - getDiscountPercentage() / 100) *
-                                    getDaysInSubscription() *
-                                    people
-                                  ).toFixed(2)}
-                                </>
-                              )}
+                              ₹
+                              {(
+                                getProductPrice() *
+                                (1 - getDiscountPercentage() / 100) *
+                                getDaysInSubscription() *
+                                people
+                              ).toFixed(2)}
                             </span>
                           </div>
                           <div className="flex justify-between">
@@ -640,39 +597,14 @@ export default function MealCalculator({ isHeroWidget = false }: MealCalculatorP
                               Total ({duration} month{duration > 1 ? "s" : ""}):
                             </span>
                             <span className="font-medium">
-                              {appliedCoupon ? (
-                                <>
-                                  <span className="line-through text-gray-400 mr-2">
-                                    ₹
-                                    {(
-                                      getProductPrice() *
-                                      (1 - getDiscountPercentage() / 100) *
-                                      getDaysInSubscription() *
-                                      people *
-                                      duration
-                                    ).toFixed(2)}
-                                  </span>
-                                  ₹
-                                  {calculateDiscountedPrice(
-                                    getProductPrice() *
-                                      (1 - getDiscountPercentage() / 100) *
-                                      getDaysInSubscription() *
-                                      people *
-                                      duration,
-                                  ).toFixed(2)}
-                                </>
-                              ) : (
-                                <>
-                                  ₹
-                                  {(
-                                    getProductPrice() *
-                                    (1 - getDiscountPercentage() / 100) *
-                                    getDaysInSubscription() *
-                                    people *
-                                    duration
-                                  ).toFixed(2)}
-                                </>
-                              )}
+                              ₹
+                              {(
+                                getProductPrice() *
+                                (1 - getDiscountPercentage() / 100) *
+                                getDaysInSubscription() *
+                                people *
+                                duration
+                              ).toFixed(2)}
                             </span>
                           </div>
                           {savings > 0 && (
@@ -692,18 +624,7 @@ export default function MealCalculator({ isHeroWidget = false }: MealCalculatorP
                           </div>
                           <div className="flex justify-between">
                             <span className="text-gray-600">Total:</span>
-                            <span className="font-medium">
-                              {appliedCoupon ? (
-                                <>
-                                  <span className="line-through text-gray-400 mr-2">
-                                    ₹{(getProductPrice() * people).toFixed(2)}
-                                  </span>
-                                  ₹{calculateDiscountedPrice(getProductPrice() * people).toFixed(2)}
-                                </>
-                              ) : (
-                                <>₹{(getProductPrice() * people).toFixed(2)}</>
-                              )}
-                            </span>
+                            <span className="font-medium">₹{(getProductPrice() * people).toFixed(2)}</span>
                           </div>
                         </>
                       )}
