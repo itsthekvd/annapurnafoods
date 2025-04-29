@@ -74,23 +74,6 @@ export default function RootLayout({
             `,
           }}
         />
-        <Script
-          id="google-analytics"
-          strategy="afterInteractive"
-          src="https://www.googletagmanager.com/gtag/js?id=G-PZHM42XL6P"
-        />
-        <Script
-          id="google-analytics-config"
-          strategy="afterInteractive"
-          dangerouslySetInnerHTML={{
-            __html: `
-              window.dataLayer = window.dataLayer || [];
-              function gtag(){dataLayer.push(arguments);}
-              gtag('js', new Date());
-              gtag('config', 'G-PZHM42XL6P');
-            `,
-          }}
-        />
         <noscript>
           <img
             height="1"
@@ -100,29 +83,6 @@ export default function RootLayout({
             alt=""
           />
         </noscript>
-        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-        <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
-        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
-        <link rel="manifest" href="/site.webmanifest" />
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "Organization",
-              name: "Annapurna Foods",
-              url: "https://annapurna.food",
-              logo: "https://annapurna.food/android-chrome-512x512.png",
-              contactPoint: {
-                "@type": "ContactPoint",
-                telephone: "+91-9876543210",
-                contactType: "customer service",
-                availableLanguage: ["English", "Tamil"],
-              },
-              sameAs: ["https://www.facebook.com/annapurnafoods", "https://www.instagram.com/annapurnafoods"],
-            }),
-          }}
-        />
       </head>
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>

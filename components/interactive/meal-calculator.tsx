@@ -19,7 +19,6 @@ import { useToast } from "@/hooks/use-toast"
 import { playSound } from "@/lib/utils"
 import { useTracking } from "@/contexts/tracking-context"
 import { useCoupon } from "@/contexts/coupon-context"
-import { calculateSubscriptionDiscount, getDaysInSubscription } from "@/lib/price-utils"
 
 // Improved number selector component for mobile
 function NumberSelector({
@@ -118,6 +117,12 @@ export default function MealCalculator({ isHeroWidget = false }: MealCalculatorP
     return product ? product.price : 0
   }
 
+  // Add this function to get the number of days based on subscription option
+  const getDaysInSubscription = () => {
+    const option = subscriptionOptions.find((opt) => opt.id === subscriptionOption)
+    return option ? option.durationInDays : 1
+  }
+
   // Add this function to get the discount percentage
   const getDiscountPercentage = () => {
     const option = subscriptionOptions.find((opt) => opt.id === subscriptionOption)
@@ -139,7 +144,7 @@ export default function MealCalculator({ isHeroWidget = false }: MealCalculatorP
       // Calculate savings compared to individual meals
       const singleMealPrice = getProductPrice()
       const discountPercentage = getDiscountPercentage()
-      const daysInSubscription = getDaysInSubscription(subscriptionOption)
+      const daysInSubscription = getDaysInSubscription()
 
       // Calculate discounted price per meal
       const discountedPrice = singleMealPrice * (1 - discountPercentage / 100)
@@ -257,11 +262,7 @@ export default function MealCalculator({ isHeroWidget = false }: MealCalculatorP
           duration: subscriptionOption !== "one-time" ? duration : 1,
           totalPrice:
             subscriptionOption !== "one-time"
-              ? getProductPrice() *
-                (1 - getDiscountPercentage() / 100) *
-                getDaysInSubscription(subscriptionOption) *
-                duration *
-                people
+              ? getProductPrice() * (1 - getDiscountPercentage() / 100) * getDaysInSubscription() * duration * people
               : getProductPrice() * people,
         })
 
@@ -387,8 +388,7 @@ export default function MealCalculator({ isHeroWidget = false }: MealCalculatorP
                                 </p>
                                 <p>{subscriptionOptions.find((o) => o.id === subscriptionOption)?.description}</p>
                                 <p className="mt-1">
-                                  <span className="font-medium">Duration:</span>{" "}
-                                  {getDaysInSubscription(subscriptionOption)} days
+                                  <span className="font-medium">Duration:</span> {getDaysInSubscription()} days
                                 </p>
                                 {getDiscountPercentage() > 0 && (
                                   <p className="text-green-600">
@@ -592,13 +592,13 @@ export default function MealCalculator({ isHeroWidget = false }: MealCalculatorP
                                   ).toFixed(2)}
                                 </>
                               ) : (
-                                <>₹{calculateSubscriptionDiscount(getProductPrice(), subscriptionOption).toFixed(2)}</>
+                                <>₹{(getProductPrice() * (1 - getDiscountPercentage() / 100)).toFixed(2)}</>
                               )}
                             </span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-gray-600">Days per month:</span>
-                            <span className="font-medium">{getDaysInSubscription(subscriptionOption)}</span>
+                            <span className="font-medium">{getDaysInSubscription()}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-gray-600">Monthly Cost:</span>
@@ -608,24 +608,27 @@ export default function MealCalculator({ isHeroWidget = false }: MealCalculatorP
                                   <span className="line-through text-gray-400 mr-2">
                                     ₹
                                     {(
-                                      calculateSubscriptionDiscount(getProductPrice(), subscriptionOption) *
-                                      getDaysInSubscription(subscriptionOption) *
+                                      getProductPrice() *
+                                      (1 - getDiscountPercentage() / 100) *
+                                      getDaysInSubscription() *
                                       people
                                     ).toFixed(2)}
                                   </span>
                                   ₹
-                                  {calculateDiscountedPrice(
-                                    calculateSubscriptionDiscount(getProductPrice(), subscriptionOption) *
-                                      getDaysInSubscription(subscriptionOption) *
-                                      people,
+                                  {(
+                                    calculateDiscountedPrice(getProductPrice()) *
+                                    (1 - getDiscountPercentage() / 100) *
+                                    getDaysInSubscription() *
+                                    people
                                   ).toFixed(2)}
                                 </>
                               ) : (
                                 <>
                                   ₹
                                   {(
-                                    calculateSubscriptionDiscount(getProductPrice(), subscriptionOption) *
-                                    getDaysInSubscription(subscriptionOption) *
+                                    getProductPrice() *
+                                    (1 - getDiscountPercentage() / 100) *
+                                    getDaysInSubscription() *
                                     people
                                   ).toFixed(2)}
                                 </>
@@ -642,16 +645,18 @@ export default function MealCalculator({ isHeroWidget = false }: MealCalculatorP
                                   <span className="line-through text-gray-400 mr-2">
                                     ₹
                                     {(
-                                      calculateSubscriptionDiscount(getProductPrice(), subscriptionOption) *
-                                      getDaysInSubscription(subscriptionOption) *
+                                      getProductPrice() *
+                                      (1 - getDiscountPercentage() / 100) *
+                                      getDaysInSubscription() *
                                       people *
                                       duration
                                     ).toFixed(2)}
                                   </span>
                                   ₹
                                   {calculateDiscountedPrice(
-                                    calculateSubscriptionDiscount(getProductPrice(), subscriptionOption) *
-                                      getDaysInSubscription(subscriptionOption) *
+                                    getProductPrice() *
+                                      (1 - getDiscountPercentage() / 100) *
+                                      getDaysInSubscription() *
                                       people *
                                       duration,
                                   ).toFixed(2)}
@@ -660,8 +665,9 @@ export default function MealCalculator({ isHeroWidget = false }: MealCalculatorP
                                 <>
                                   ₹
                                   {(
-                                    calculateSubscriptionDiscount(getProductPrice(), subscriptionOption) *
-                                    getDaysInSubscription(subscriptionOption) *
+                                    getProductPrice() *
+                                    (1 - getDiscountPercentage() / 100) *
+                                    getDaysInSubscription() *
                                     people *
                                     duration
                                   ).toFixed(2)}

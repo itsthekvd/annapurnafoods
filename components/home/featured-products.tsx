@@ -8,15 +8,15 @@ import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { products } from "@/lib/data"
 import { useCart } from "@/contexts/cart-context"
 import { getImageUrlWithFallback } from "@/lib/image-utils"
+// First, import the useCoupon hook from the coupon context
 import { useCoupon } from "@/contexts/coupon-context"
-import { CouponBadge } from "@/components/ui/coupon-badge"
-import { formatPrice } from "@/lib/price-utils"
 
 export default function FeaturedProducts() {
   // Only show the first 4 products
   const featuredProducts = products.slice(0, 4)
   const { addItem } = useCart()
   const router = useRouter()
+  // Add the coupon hook to access coupon functionality
   const { appliedCoupon, calculateDiscountedPrice } = useCoupon()
 
   const handleAddToCart = (productId: string) => {
@@ -49,8 +49,8 @@ export default function FeaturedProducts() {
         {/* Update the grid div to include a coupon badge if a coupon is applied */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 relative">
           {appliedCoupon && (
-            <div className="absolute -top-4 left-0 z-10">
-              <CouponBadge />
+            <div className="absolute -top-4 left-0 bg-amber-600 text-white text-sm font-medium px-3 py-1 rounded-full shadow-sm">
+              Coupon: {appliedCoupon.code} Applied
             </div>
           )}
 
@@ -58,18 +58,11 @@ export default function FeaturedProducts() {
             <Card key={product.id} className="overflow-hidden border-amber-100 hover:shadow-md transition-shadow">
               <div className="relative h-48">
                 <Image
-                  src={getImageUrlWithFallback(product.id) || "/placeholder.svg"}
+                  src="https://mlfrqt0dgucs.i.optimole.com/w:auto/h:auto/q:auto/id:fb208102d0f45e8d1da54c42447aa7f5/directUpload/brunch-dinner-34.jpg"
                   alt={product.name}
                   fill
                   className="object-cover"
                 />
-                {appliedCoupon && (
-                  <div className="absolute top-2 right-2 z-10">
-                    <div className="bg-green-600 text-white text-xs font-medium px-2 py-0.5 rounded">
-                      {appliedCoupon.discountPercentage}% OFF
-                    </div>
-                  </div>
-                )}
               </div>
               <CardContent className="pt-6">
                 <h3 className="text-lg font-semibold mb-2">{product.name}</h3>
@@ -78,17 +71,15 @@ export default function FeaturedProducts() {
                   {appliedCoupon ? (
                     <>
                       <span className="text-amber-700 font-bold">
-                        {formatPrice(calculateDiscountedPrice(product.price))}
+                        ₹{calculateDiscountedPrice(product.price, 1, 0, product).toFixed(2)}
                       </span>
-                      <span className="text-gray-500 text-sm line-through ml-2">{formatPrice(product.price)}</span>
+                      <span className="text-gray-500 text-sm line-through ml-2">₹{product.price.toFixed(2)}</span>
                     </>
                   ) : (
-                    <span className="text-amber-700 font-bold">{formatPrice(product.price)}</span>
+                    <span className="text-amber-700 font-bold">₹{product.price.toFixed(2)}</span>
                   )}
                   {product.originalPrice && !appliedCoupon && (
-                    <span className="text-gray-500 text-sm line-through ml-2">
-                      {formatPrice(product.originalPrice)}
-                    </span>
+                    <span className="text-gray-500 text-sm line-through ml-2">₹{product.originalPrice.toFixed(2)}</span>
                   )}
                 </div>
                 <p className="text-gray-600 text-sm">{product.description}</p>
