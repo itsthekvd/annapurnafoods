@@ -1,10 +1,11 @@
 User-agent: *
 Allow: /
+
+# Disallow admin and secure areas
 Disallow: /admin/
 Disallow: /admin-dashboard-secure/
 Disallow: /admin-secure-dashboard-a7x9z2p5/
-Disallow: /checkout/success
-Disallow: /checkout/phonepe-callback
-Disallow: /api/
 
+# Sitemaps
 Sitemap: https://annapurna.food/sitemap.xml
+Sitemap: https://annapurna.food/sitemap-index.xml
