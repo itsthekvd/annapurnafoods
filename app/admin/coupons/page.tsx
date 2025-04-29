@@ -4,37 +4,55 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
-import { Loader2 } from "lucide-react"
+import { Loader2, AlertCircle } from "lucide-react"
 import { getSupabaseClient } from "@/lib/supabase-client"
 import { availableCoupons } from "@/lib/data"
 import type { Coupon } from "@/lib/types"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export default function CouponManagementPage() {
   const [coupons, setCoupons] = useState<(Coupon & { id?: string })[]>([])
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
 
   useEffect(() => {
     async function fetchCoupons() {
       try {
+        setLoading(true)
+        setError(null)
+
         const supabase = getSupabaseClient()
 
-        // Check if coupons table exists
-        const { data: tableExists } = await supabase.from("coupons").select("id").limit(1).maybeSingle()
+        // First, check if the coupons table exists
+        const { data: tableExists, error: tableCheckError } = await supabase
+          .from("coupons")
+          .select("count(*)")
+          .limit(1)
+          .single()
 
-        if (tableExists !== null) {
-          // Table exists, fetch coupons
-          const { data, error } = await supabase.from("coupons").select("*")
-          if (error) throw error
-          setCoupons(data || [])
-        } else {
-          // Initialize with data from availableCoupons
-          const initialCoupons = await initializeCouponsTable()
-          setCoupons(initialCoupons || [])
+        if (tableCheckError && tableCheckError.code !== "PGRST116") {
+          // If error is not "relation does not exist", then it's a different error
+          throw tableCheckError
         }
-      } catch (error) {
-        console.error("Error fetching coupons:", error)
-        // Fallback to static data if database fails
+
+        // If table doesn't exist or is empty, create it and populate with initial data
+        if (!tableExists || tableCheckError) {
+          await createAndPopulateCouponsTable()
+        }
+
+        // Now fetch all coupons
+        const { data, error: fetchError } = await supabase.from("coupons").select("*").order("code")
+
+        if (fetchError) throw fetchError
+
+        setCoupons(data || [])
+      } catch (err) {
+        console.error("Error fetching coupons:", err)
+        setError("Failed to load coupons. Please try again.")
+
+        // Fallback to static data
         setCoupons(
           availableCoupons.map((coupon) => ({
             ...coupon,
@@ -49,38 +67,37 @@ export default function CouponManagementPage() {
     fetchCoupons()
   }, [])
 
-  async function initializeCouponsTable() {
-    try {
-      const supabase = getSupabaseClient()
+  async function createAndPopulateCouponsTable() {
+    const supabase = getSupabaseClient()
 
-      // Create coupons table if it doesn't exist
-      // Use try-catch instead of .catch() for RPC call
-      try {
-        const { error } = await supabase.rpc("create_coupons_table_if_not_exists")
-        if (error) {
-          console.error("Error creating coupons table via RPC:", error)
-          // Continue execution even if RPC fails
+    try {
+      // Create the coupons table
+      const { error: createError } = await supabase.rpc("create_coupons_table")
+
+      if (createError) {
+        console.error("Error creating coupons table:", createError)
+
+        // Try direct SQL if RPC fails
+        const { error: sqlError } = await supabase.from("coupons").insert([])
+        if (sqlError && !sqlError.message.includes("already exists")) {
+          throw sqlError
         }
-      } catch (rpcError) {
-        console.error("Exception during RPC call:", rpcError)
-        // Continue execution even if RPC throws
       }
 
-      // Insert initial coupons
+      // Populate with initial data
       const couponsWithIds = availableCoupons.map((coupon) => ({
-        ...coupon,
-        id: coupon.code, // Use code as ID for simplicity
-      }))
-
-      const { data, error } = await supabase.from("coupons").insert(couponsWithIds).select()
-      if (error) throw error
-      return data
-    } catch (error) {
-      console.error("Error initializing coupons table:", error)
-      return availableCoupons.map((coupon) => ({
         ...coupon,
         id: coupon.code,
       }))
+
+      const { error: insertError } = await supabase.from("coupons").upsert(couponsWithIds, { onConflict: "id" })
+
+      if (insertError) throw insertError
+
+      return true
+    } catch (error) {
+      console.error("Error setting up coupons table:", error)
+      throw error
     }
   }
 
@@ -88,19 +105,29 @@ export default function CouponManagementPage() {
     if (!coupon.id) return
 
     setUpdating(coupon.id)
+    setError(null)
+    setSuccess(null)
+
     try {
       const supabase = getSupabaseClient()
       const newStatus = !coupon.isActive
-      const { error } = await supabase.from("coupons").update({ isActive: newStatus }).eq("id", coupon.id)
 
-      if (error) throw error
+      // Update in database
+      const { error: dbError } = await supabase.from("coupons").update({ isActive: newStatus }).eq("id", coupon.id)
 
-      // Update local state
+      if (dbError) throw dbError
+
+      // Update in memory
       setCoupons((prev) => prev.map((c) => (c.id === coupon.id ? { ...c, isActive: newStatus } : c)))
+
+      // Show success message
+      setSuccess(`Coupon ${coupon.code} ${newStatus ? "enabled" : "disabled"} successfully`)
+
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccess(null), 3000)
     } catch (error) {
       console.error("Error updating coupon status:", error)
-      // Fallback to local state update if database fails
-      setCoupons((prev) => prev.map((c) => (c.id === coupon.id ? { ...c, isActive: !c.isActive } : c)))
+      setError(`Failed to update coupon status. Please try again.`)
     } finally {
       setUpdating(null)
     }
@@ -128,6 +155,19 @@ export default function CouponManagementPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-2xl font-bold text-amber-800 mb-6">Coupon Management</h1>
+
+      {error && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {success && (
+        <Alert className="mb-4 bg-green-50 border-green-200 text-green-800">
+          <AlertDescription>{success}</AlertDescription>
+        </Alert>
+      )}
 
       <Card>
         <CardHeader>
@@ -181,6 +221,10 @@ export default function CouponManagementPage() {
           </div>
         </CardContent>
       </Card>
+
+      <div className="mt-4 text-sm text-gray-500">
+        <p>Note: Changes to coupon status will take effect immediately across the website.</p>
+      </div>
     </div>
   )
 }
