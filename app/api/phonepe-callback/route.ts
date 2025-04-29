@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server"
 import { config } from "@/lib/config"
 import crypto from "crypto"
+import OrderStorage from "@/lib/order-storage"
+import { ORDER_STATUS } from "@/lib/types"
 
 export async function POST(request: Request) {
   try {
     const body = await request.json()
+    console.log("PhonePe callback received:", body)
 
     // Verify the callback signature
     const xVerify = request.headers.get("X-VERIFY")
@@ -34,6 +37,7 @@ export async function POST(request: Request) {
 
     // Decode the payload
     const decodedResponse = JSON.parse(Buffer.from(response, "base64").toString())
+    console.log("Decoded PhonePe response:", decodedResponse)
 
     // Process the payment status
     const { merchantId, merchantTransactionId, transactionId, amount, paymentState } = decodedResponse
@@ -43,55 +47,39 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid merchant ID" }, { status: 400 })
     }
 
-    // Update the payment status handling logic to properly handle different payment states
+    // Determine the order status based on the payment state
+    let orderStatus = ORDER_STATUS.PAID_PENDING
     if (paymentState === "COMPLETED") {
-      // Payment was successful
-      // Store the payment status in session storage for the client to check
-      try {
-        // We'll need to handle this on the client side since we can't directly modify session storage from the server
-        console.log("Payment completed successfully:", transactionId)
-
-        // Return a success response with the payment status
-        return NextResponse.json({
-          success: true,
-          status: "COMPLETED",
-          message: "Payment completed successfully",
-          transactionId,
-          merchantTransactionId,
-        })
-      } catch (error) {
-        console.error("Error processing successful payment:", error)
-        return NextResponse.json({
-          success: true,
-          status: "ERROR",
-          message: "Error processing successful payment",
-        })
-      }
-    } else if (paymentState === "FAILED" || paymentState === "CANCELLED") {
-      // Payment failed or was cancelled
-      console.log("Payment failed or cancelled:", paymentState, transactionId)
-
-      // Return a response indicating the payment failed
-      return NextResponse.json({
-        success: true, // We still acknowledge the callback to PhonePe
-        status: paymentState,
-        message: `Payment ${paymentState.toLowerCase()}`,
-        transactionId,
-        merchantTransactionId,
-      })
-    } else {
-      // Payment is in another state (e.g., PENDING)
-      console.log("Payment in state:", paymentState, transactionId)
-
-      // Return a response with the current state
-      return NextResponse.json({
-        success: true,
-        status: paymentState,
-        message: `Payment is ${paymentState.toLowerCase()}`,
-        transactionId,
-        merchantTransactionId,
-      })
+      orderStatus = ORDER_STATUS.PAID_PENDING
+    } else if (paymentState === "FAILED") {
+      orderStatus = "payment_failed"
+    } else if (paymentState === "PENDING") {
+      orderStatus = "payment_pending"
     }
+
+    // Try to find the order by transaction ID
+    try {
+      const order = await OrderStorage.getOrderByPhonePeTransactionId(transactionId || merchantTransactionId)
+
+      if (order) {
+        // Update the order status
+        await OrderStorage.updateOrderStatus(order.id, orderStatus)
+        console.log(`Order ${order.id} status updated to ${orderStatus}`)
+      } else {
+        console.log(`No order found for transaction ID ${transactionId || merchantTransactionId}`)
+      }
+    } catch (error) {
+      console.error("Error updating order status:", error)
+    }
+
+    // Return a success response to PhonePe
+    return NextResponse.json({
+      success: true,
+      status: paymentState,
+      message: `Payment callback processed successfully. Status: ${paymentState}`,
+      transactionId,
+      merchantTransactionId,
+    })
   } catch (error) {
     console.error("Error processing PhonePe callback:", error)
     return NextResponse.json({ error: "Failed to process callback" }, { status: 500 })

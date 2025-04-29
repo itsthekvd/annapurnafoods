@@ -35,6 +35,7 @@ const OrderStorage = {
         meal_quantity: orderData.mealQuantity || 1,
         delivery_frequency: orderData.deliveryFrequency || null,
         coupon_code: orderData.couponCode || null,
+        phonepe_transaction_id: orderData.paymentInfo.phonepeTransactionId || null,
       })
 
       if (orderError) {
@@ -205,6 +206,7 @@ const OrderStorage = {
           paymentInfo: {
             method: order.payment_method,
             transactionId: order.payment_transaction_id || "",
+            phonepeTransactionId: order.phonepe_transaction_id || "",
             amount: order.payment_amount,
           },
           items,
@@ -300,6 +302,7 @@ const OrderStorage = {
         paymentInfo: {
           method: order.payment_method,
           transactionId: order.payment_transaction_id || "",
+          phonepeTransactionId: order.phonepe_transaction_id || "",
           amount: order.payment_amount,
         },
         items: orderItems
@@ -413,6 +416,87 @@ const OrderStorage = {
     } catch (error) {
       console.error("Failed to delete order from Supabase:", error)
       return false
+    }
+  },
+
+  // Get order by PhonePe transaction ID
+  getOrderByPhonePeTransactionId: async (transactionId: string): Promise<OrderData | null> => {
+    try {
+      console.log("Getting order by PhonePe transaction ID from Supabase:", transactionId)
+      const supabase = getSupabaseServiceClient()
+
+      // Get the order
+      const { data: order, error: orderError } = await supabase
+        .from("orders")
+        .select("*")
+        .eq("phonepe_transaction_id", transactionId)
+        .single()
+
+      if (orderError || !order) {
+        console.error("Error getting order by PhonePe transaction ID from Supabase:", orderError)
+        return null
+      }
+
+      // Get the order items
+      const { data: orderItems, error: itemsError } = await supabase
+        .from("order_items")
+        .select("*")
+        .eq("order_id", order.id)
+
+      if (itemsError) {
+        console.error("Error getting order items from Supabase:", itemsError)
+        return null
+      }
+
+      // Map the data to our OrderData format
+      const formattedOrder: OrderData = {
+        id: order.id,
+        createdAt: order.created_at,
+        status: order.status,
+        customerInfo: {
+          name: order.customer_name,
+          email: order.customer_email || "",
+          phone: order.customer_phone,
+          notes: order.customer_notes || "",
+          zipcode: order.customer_zipcode || "",
+          hasVoiceNote: order.has_voice_note || false,
+        },
+        locationInfo: {
+          address: order.location_address,
+          lat: order.location_lat,
+          lng: order.location_lng,
+          mapUrl: order.location_map_url || "",
+        },
+        paymentInfo: {
+          method: order.payment_method,
+          transactionId: order.payment_transaction_id || "",
+          phonepeTransactionId: order.phonepe_transaction_id || "",
+          amount: order.payment_amount,
+        },
+        items: orderItems
+          ? orderItems.map((item) => ({
+              productId: item.product_id,
+              productName: item.product_name,
+              quantity: item.quantity || 1,
+              price: item.price,
+              subscriptionOption: item.subscription_option,
+              subscriptionDays: item.subscription_days,
+            }))
+          : [],
+        deliveryDate: order.delivery_date,
+        total: order.total,
+        mealType: order.meal_type || "",
+        planType: order.plan_type || "",
+        mealQuantity: order.meal_quantity || 1,
+        deliveryFrequency: order.delivery_frequency || "",
+        couponCode: order.coupon_code || "",
+      }
+
+      console.log("Found order by PhonePe transaction ID in Supabase:", transactionId)
+      return formattedOrder
+    } catch (error) {
+      console.error("Failed to retrieve order by PhonePe transaction ID from Supabase:", error)
+      return null
     }
   },
 }
