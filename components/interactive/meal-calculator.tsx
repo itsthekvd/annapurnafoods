@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast"
 import { playSound } from "@/lib/utils"
 import { useTracking } from "@/contexts/tracking-context"
+import { useCoupon } from "@/contexts/coupon-context"
 
 // Improved number selector component for mobile
 function NumberSelector({
@@ -97,6 +98,7 @@ export default function MealCalculator({ isHeroWidget = false }: MealCalculatorP
   const { addItem, clearCart } = useCart()
   const { trackEvent } = useTracking()
   const { toast } = useToast()
+  const { appliedCoupon } = useCoupon()
 
   const [step, setStep] = useState(1)
   const [mealType, setMealType] = useState("brunch")
@@ -537,12 +539,21 @@ export default function MealCalculator({ isHeroWidget = false }: MealCalculatorP
                 <>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Plan:</span>
-                    <span className="font-medium">{selectedSubscriptionOption?.name}</span>
+                    <span className="font-medium">
+                      {subscriptionOptions.find((o) => o.id === subscriptionOption)?.name}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Price per meal:</span>
                     <span className="font-medium">
-                      ₹{(getProductPrice() * (1 - getDiscountPercentage() / 100)).toFixed(2)}
+                      {appliedCoupon ? (
+                        <div className="flex flex-col items-end">
+                          <span className="line-through text-gray-500 text-sm">₹{getProductPrice().toFixed(2)}</span>
+                          <span>₹{(getProductPrice() * (1 - getDiscountPercentage() / 100)).toFixed(2)}</span>
+                        </div>
+                      ) : (
+                        <span>₹{(getProductPrice() * (1 - getDiscountPercentage() / 100)).toFixed(2)}</span>
+                      )}
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -552,20 +563,68 @@ export default function MealCalculator({ isHeroWidget = false }: MealCalculatorP
                   <div className="flex justify-between">
                     <span className="text-gray-600">Monthly Cost:</span>
                     <span className="font-medium">
-                      ₹
-                      {(
-                        getProductPrice() *
-                        (1 - getDiscountPercentage() / 100) *
-                        getDaysInSubscription() *
-                        people
-                      ).toFixed(2)}
+                      {appliedCoupon ? (
+                        <div className="flex flex-col items-end">
+                          <span className="line-through text-gray-500 text-sm">
+                            ₹{(getProductPrice() * getDaysInSubscription() * people).toFixed(2)}
+                          </span>
+                          <span>
+                            ₹
+                            {(
+                              getProductPrice() *
+                              (1 - getDiscountPercentage() / 100) *
+                              getDaysInSubscription() *
+                              people
+                            ).toFixed(2)}
+                          </span>
+                        </div>
+                      ) : (
+                        <span>
+                          ₹
+                          {(
+                            getProductPrice() *
+                            (1 - getDiscountPercentage() / 100) *
+                            getDaysInSubscription() *
+                            people
+                          ).toFixed(2)}
+                        </span>
+                      )}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">
                       Total ({duration} month{duration > 1 ? "s" : ""}):
                     </span>
-                    <span className="font-medium">₹{totalPrice.toFixed(2)}</span>
+                    <span className="font-medium">
+                      {appliedCoupon ? (
+                        <div className="flex flex-col items-end">
+                          <span className="line-through text-gray-500 text-sm">
+                            ₹{(getProductPrice() * getDaysInSubscription() * people * duration).toFixed(2)}
+                          </span>
+                          <span>
+                            ₹
+                            {(
+                              getProductPrice() *
+                              (1 - getDiscountPercentage() / 100) *
+                              getDaysInSubscription() *
+                              people *
+                              duration
+                            ).toFixed(2)}
+                          </span>
+                        </div>
+                      ) : (
+                        <span>
+                          ₹
+                          {(
+                            getProductPrice() *
+                            (1 - getDiscountPercentage() / 100) *
+                            getDaysInSubscription() *
+                            people *
+                            duration
+                          ).toFixed(2)}
+                        </span>
+                      )}
+                    </span>
                   </div>
                   {savings > 0 && (
                     <div className="flex justify-between text-green-600">
@@ -584,7 +643,25 @@ export default function MealCalculator({ isHeroWidget = false }: MealCalculatorP
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Total:</span>
-                    <span className="font-medium">₹{totalPrice.toFixed(2)}</span>
+                    <span className="font-medium">
+                      {appliedCoupon ? (
+                        <div className="flex flex-col items-end">
+                          <span className="line-through text-gray-500 text-sm">
+                            ₹{(getProductPrice() * people).toFixed(2)}
+                          </span>
+                          <span>
+                            ₹
+                            {(
+                              getProductPrice() *
+                              people *
+                              (1 - (appliedCoupon.type === "percentage" ? appliedCoupon.discount / 100 : 0))
+                            ).toFixed(2)}
+                          </span>
+                        </div>
+                      ) : (
+                        <span>₹{(getProductPrice() * people).toFixed(2)}</span>
+                      )}
+                    </span>
                   </div>
                 </>
               )}
