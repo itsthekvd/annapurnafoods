@@ -25,32 +25,26 @@ export default function CouponManagementPage() {
 
         const supabase = getSupabaseClient()
 
-        // First, check if the coupons table exists
-        const { data: tableExists, error: tableCheckError } = await supabase
-          .from("coupons")
-          .select("count(*)")
-          .limit(1)
-          .single()
+        // Check if the coupons table exists by trying to select a single row
+        const { data, error: tableCheckError } = await supabase.from("coupons").select("id").limit(1).maybeSingle()
 
-        if (tableCheckError && tableCheckError.code !== "PGRST116") {
-          // If error is not "relation does not exist", then it's a different error
-          throw tableCheckError
-        }
+        // If we get a PGRST116 error, the table doesn't exist
+        const tableExists = !tableCheckError || tableCheckError.code !== "PGRST116"
 
-        // If table doesn't exist or is empty, create it and populate with initial data
-        if (!tableExists || tableCheckError) {
+        // If table doesn't exist, create it and populate with initial data
+        if (!tableExists) {
           await createAndPopulateCouponsTable()
         }
 
         // Now fetch all coupons
-        const { data, error: fetchError } = await supabase.from("coupons").select("*").order("code")
+        const { data: allCoupons, error: fetchError } = await supabase.from("coupons").select("*").order("code")
 
         if (fetchError) throw fetchError
 
-        setCoupons(data || [])
-      } catch (err) {
+        setCoupons(allCoupons || [])
+      } catch (err: any) {
         console.error("Error fetching coupons:", err)
-        setError("Failed to load coupons. Please try again.")
+        setError(`Failed to load coupons: ${err.message || "Unknown error"}`)
 
         // Fallback to static data
         setCoupons(
@@ -71,18 +65,27 @@ export default function CouponManagementPage() {
     const supabase = getSupabaseClient()
 
     try {
-      // Create the coupons table
-      const { error: createError } = await supabase.rpc("create_coupons_table")
+      // Create the coupons table using direct SQL
+      const createTableSQL = `
+        CREATE TABLE IF NOT EXISTS public.coupons (
+          id TEXT PRIMARY KEY,
+          code TEXT NOT NULL,
+          description TEXT,
+          type TEXT NOT NULL,
+          discount NUMERIC NOT NULL,
+          min_order_value NUMERIC DEFAULT 0,
+          max_discount NUMERIC,
+          "isActive" BOOLEAN DEFAULT true,
+          "isHidden" BOOLEAN DEFAULT false,
+          "specialAction" TEXT
+        );
+      `
 
-      if (createError) {
-        console.error("Error creating coupons table:", createError)
-
-        // Try direct SQL if RPC fails
-        const { error: sqlError } = await supabase.from("coupons").insert([])
-        if (sqlError && !sqlError.message.includes("already exists")) {
-          throw sqlError
-        }
-      }
+      // Execute the SQL directly
+      await supabase.rpc("exec_sql", { sql: createTableSQL }).catch((err) => {
+        console.error("Error creating table via RPC:", err)
+        // Continue even if this fails - we'll try the insert anyway
+      })
 
       // Populate with initial data
       const couponsWithIds = availableCoupons.map((coupon) => ({
@@ -90,7 +93,10 @@ export default function CouponManagementPage() {
         id: coupon.code,
       }))
 
-      const { error: insertError } = await supabase.from("coupons").upsert(couponsWithIds, { onConflict: "id" })
+      const { error: insertError } = await supabase.from("coupons").upsert(couponsWithIds, {
+        onConflict: "id",
+        ignoreDuplicates: false,
+      })
 
       if (insertError) throw insertError
 
@@ -125,9 +131,9 @@ export default function CouponManagementPage() {
 
       // Clear success message after 3 seconds
       setTimeout(() => setSuccess(null), 3000)
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error updating coupon status:", error)
-      setError(`Failed to update coupon status. Please try again.`)
+      setError(`Failed to update coupon status: ${error.message || "Unknown error"}`)
     } finally {
       setUpdating(null)
     }
