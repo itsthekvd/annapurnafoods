@@ -48,12 +48,19 @@ export async function POST(request: Request) {
     }
 
     // Determine the order status based on the payment state
+    // PhonePe can return success in multiple formats
     let orderStatus = ORDER_STATUS.PAID_PENDING
-    if (paymentState === "COMPLETED") {
+    const paymentStateUpper = (paymentState || "").toUpperCase()
+
+    if (
+      paymentStateUpper.includes("SUCCESS") ||
+      paymentStateUpper === "COMPLETED" ||
+      paymentStateUpper === "TXN_SUCCESS"
+    ) {
       orderStatus = ORDER_STATUS.PAID_PENDING
-    } else if (paymentState === "FAILED") {
+    } else if (paymentStateUpper.includes("FAIL") || paymentStateUpper === "FAILED") {
       orderStatus = "payment_failed"
-    } else if (paymentState === "PENDING") {
+    } else if (paymentStateUpper.includes("PEND") || paymentStateUpper === "PENDING") {
       orderStatus = "payment_pending"
     }
 

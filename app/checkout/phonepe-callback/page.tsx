@@ -34,21 +34,34 @@ export default function PhonePeCallbackPage() {
         // Get the status from the URL
         const searchParams = new URLSearchParams(window.location.search)
         const code = searchParams.get("code")
+        const status = searchParams.get("status") // PhonePe sometimes uses 'status' instead of 'code'
         const transactionId = searchParams.get("transactionId") || searchParams.get("txnId")
         const merchantTransactionId = searchParams.get("merchantTransactionId")
 
         console.log("PhonePe callback received:", {
           code,
+          status,
           transactionId,
           merchantTransactionId,
           searchParams: Object.fromEntries(searchParams.entries()),
         })
 
-        // Check payment status
-        if (code === "PAYMENT_SUCCESS" || code === "SUCCESS") {
+        // Check payment status - PhonePe can return success in multiple formats
+        const paymentStatus = code || status || ""
+        const isSuccess =
+          paymentStatus.toUpperCase().includes("SUCCESS") ||
+          paymentStatus === "PAYMENT_SUCCESS" ||
+          paymentStatus === "SUCCESS" ||
+          paymentStatus === "COMPLETED" ||
+          paymentStatus === "TXN_SUCCESS"
+
+        // Check if we have a transaction ID which indicates success
+        const hasTransactionId = !!transactionId || !!merchantTransactionId
+
+        if (isSuccess || hasTransactionId) {
           // Call the success handler
           await handleSuccessfulPayment(transactionId, merchantTransactionId)
-        } else if (code === "PAYMENT_ERROR" || code === "FAILURE" || code === "FAILED") {
+        } else if (paymentStatus === "PAYMENT_ERROR" || paymentStatus === "FAILURE" || paymentStatus === "FAILED") {
           // Show error message
           toast({
             title: "Payment Failed",

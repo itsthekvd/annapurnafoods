@@ -48,6 +48,8 @@ export default function PhonePePayment({ amount, customerInfo, onSuccess, onFail
         orderId = lastFailedPayment.orderId
       }
 
+      console.log("Creating PhonePe payment with order ID:", orderId)
+
       // Call our API to create a PhonePe payment
       const response = await fetch("/api/create-phonepe-payment", {
         method: "POST",
@@ -62,6 +64,7 @@ export default function PhonePePayment({ amount, customerInfo, onSuccess, onFail
       })
 
       const data = await response.json()
+      console.log("PhonePe payment creation response:", data)
 
       if (!response.ok || !data.success) {
         console.error("PhonePe API error:", data)
@@ -70,15 +73,14 @@ export default function PhonePePayment({ amount, customerInfo, onSuccess, onFail
 
       // Store transaction details in session storage for verification after redirect
       if (typeof window !== "undefined" && window.sessionStorage) {
-        sessionStorage.setItem(
-          "phonePeTransaction",
-          JSON.stringify({
-            merchantTransactionId: data.data.merchantTransactionId,
-            amount,
-            customerInfo,
-            orderId,
-          }),
-        )
+        const transactionData = {
+          merchantTransactionId: data.data.merchantTransactionId,
+          amount,
+          customerInfo,
+          orderId,
+        }
+        console.log("Storing PhonePe transaction data:", transactionData)
+        sessionStorage.setItem("phonePeTransaction", JSON.stringify(transactionData))
 
         // Also store cart items for the callback
         const cartItems = localStorage.getItem("annapurna-cart")
