@@ -54,10 +54,17 @@ export default function CouponManagementPage() {
       const supabase = getSupabaseClient()
 
       // Create coupons table if it doesn't exist
-      await supabase.rpc("create_coupons_table_if_not_exists").catch((err) => {
-        console.error("Error creating coupons table:", err)
-        // Continue execution even if RPC fails
-      })
+      // Use try-catch instead of .catch() for RPC call
+      try {
+        const { error } = await supabase.rpc("create_coupons_table_if_not_exists")
+        if (error) {
+          console.error("Error creating coupons table via RPC:", error)
+          // Continue execution even if RPC fails
+        }
+      } catch (rpcError) {
+        console.error("Exception during RPC call:", rpcError)
+        // Continue execution even if RPC throws
+      }
 
       // Insert initial coupons
       const couponsWithIds = availableCoupons.map((coupon) => ({

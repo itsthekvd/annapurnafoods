@@ -6,7 +6,6 @@ export default function CouponsLoading() {
       <h1 className="text-2xl font-bold text-amber-800 mb-6">Coupon Management</h1>
       <div className="flex justify-center items-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-amber-600" />
-        <span className="ml-2 text-amber-600">Loading coupons...</span>
       </div>
     </div>
   )
