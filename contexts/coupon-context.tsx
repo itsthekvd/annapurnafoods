@@ -1,8 +1,8 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
-import { availableCoupons, promotionalCoupon, specialProducts } from "@/lib/data"
-import type { Coupon, Product } from "@/lib/types"
+import { availableCoupons, promotionalCoupon } from "@/lib/data"
+import type { Coupon } from "@/lib/types"
 
 interface CouponContextType {
   appliedCoupon: Coupon | null
@@ -10,12 +10,7 @@ interface CouponContextType {
   applyCoupon: (code: string) => boolean
   removeCoupon: () => void
   toggleCoupon: () => void
-  calculateDiscountedPrice: (
-    originalPrice: number,
-    quantity?: number,
-    additionalDiscountPercentage?: number,
-    product?: Product,
-  ) => number
+  calculateDiscountedPrice: (originalPrice: number, quantity?: number, additionalDiscountPercentage?: number) => number
 }
 
 const CouponContext = createContext<CouponContextType | undefined>(undefined)
@@ -71,42 +66,30 @@ export function CouponProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const calculateDiscountedPrice = (
-    originalPrice: number,
-    quantity = 1,
-    additionalDiscountPercentage = 0,
-    product?: Product,
-  ): number => {
+  const calculateDiscountedPrice = (originalPrice: number, quantity = 1, additionalDiscountPercentage = 0): number => {
+    // Special case for the Rs. 1 coupon
+    if (appliedCoupon && appliedCoupon.type === "special" && appliedCoupon.specialAction === "set_total_to_one") {
+      // For this special coupon, we return a very small amount per item
+      // so that the total will be approximately ₹1
+      return 1 / (quantity || 1)
+    }
+
     let discountedPrice = originalPrice
 
     // Apply coupon discount
     if (appliedCoupon) {
-      // Check if the coupon applies to special products
-      const isSpecialProduct = product && specialProducts.some((special) => special.id === product.id)
+      if (appliedCoupon.type === "fixed") {
+        // Fixed amount discount
+        discountedPrice = originalPrice - appliedCoupon.discount
+      } else if (appliedCoupon.type === "percentage") {
+        // Percentage discount
+        const discountAmount = originalPrice * (appliedCoupon.discount / 100)
 
-      if (appliedCoupon.appliesToSpecials === false && isSpecialProduct) {
-        // Coupon does not apply to special products, so skip discount
-      } else {
-        if (appliedCoupon.type === "fixed") {
-          // Fixed amount discount
-          discountedPrice = originalPrice - appliedCoupon.discount
-        } else if (appliedCoupon.type === "percentage") {
-          // Percentage discount
-          const discountAmount = originalPrice * (appliedCoupon.discount / 100)
-
-          // Apply max discount cap if specified
-          if (appliedCoupon.maxDiscount && discountAmount > appliedCoupon.maxDiscount) {
-            discountedPrice = originalPrice - appliedCoupon.maxDiscount
-          } else {
-            discountedPrice = originalPrice - discountAmount
-          }
-        } else if (
-          appliedCoupon.type === "special" &&
-          appliedCoupon.specialAction === "set_special_to_150" &&
-          isSpecialProduct
-        ) {
-          // Special case for setting special products to 150
-          discountedPrice = 150
+        // Apply max discount cap if specified
+        if (appliedCoupon.maxDiscount && discountAmount > appliedCoupon.maxDiscount) {
+          discountedPrice = originalPrice - appliedCoupon.maxDiscount
+        } else {
+          discountedPrice = originalPrice - discountAmount
         }
       }
     }

@@ -116,8 +116,8 @@ export function getUpsellProducts(isSubscription: boolean, mealType: string): Pr
         slug: "sweets-subscription",
         description:
           "Enjoy a different sweet treat with each delivery. We'll rotate between Lapshi, Shira, Payasam, and more!",
-        price: 200,
-        originalPrice: 300,
+        price: 100,
+        originalPrice: 150,
         image: "/placeholder.svg?height=400&width=600",
         isSubscription: true,
       },

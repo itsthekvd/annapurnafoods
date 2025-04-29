@@ -24,8 +24,8 @@ export default function SweetsSubscriptionUpsell() {
     slug: "sweets-subscription",
     description:
       "Enjoy a different sweet treat with each delivery. We'll rotate between Lapshi, Shira, Payasam, and more!",
-    price: 200,
-    originalPrice: 300,
+    price: 100,
+    originalPrice: 150,
     image: "/placeholder.svg?height=400&width=600",
     isSubscription: true,
   })
@@ -126,8 +126,8 @@ export default function SweetsSubscriptionUpsell() {
 
             <div className="flex items-center justify-between">
               <div>
-                <span className="text-2xl font-bold text-amber-700">₹200</span>
-                <span className="text-gray-500 text-sm line-through ml-2">₹300</span>
+                <span className="text-2xl font-bold text-amber-700">₹100</span>
+                <span className="text-gray-500 text-sm line-through ml-2">₹150</span>
                 <span className="text-sm text-gray-600 ml-2">per month</span>
               </div>
 
