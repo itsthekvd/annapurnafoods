@@ -6,8 +6,15 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { amount, customerInfo, orderId } = body
 
-    if (!amount) {
-      return NextResponse.json({ error: "Amount is required" }, { status: 400 })
+    // Validate required fields
+    if (!amount || amount <= 0) {
+      return NextResponse.json(
+        {
+          error: "Valid amount is required",
+          details: "Amount must be greater than 0",
+        },
+        { status: 400 },
+      )
     }
 
     // Generate a unique order ID if not provided
@@ -23,6 +30,18 @@ export async function POST(request: Request) {
         customerEmail: customerInfo?.email || "",
         customerPhone: customerInfo?.phone || "",
       },
+    }
+
+    // Validate API credentials
+    if (!config.razorpayKeyId || !config.razorpaySecretKey) {
+      console.error("Missing Razorpay API credentials")
+      return NextResponse.json(
+        {
+          error: "Payment gateway configuration error",
+          details: "Missing API credentials",
+        },
+        { status: 500 },
+      )
     }
 
     // Razorpay API endpoint for creating orders
@@ -49,6 +68,7 @@ export async function POST(request: Request) {
         {
           error: responseData.error?.description || "Failed to create order",
           details: responseData,
+          status: response.status,
         },
         { status: response.status },
       )
@@ -66,6 +86,12 @@ export async function POST(request: Request) {
     })
   } catch (error) {
     console.error("Error creating Razorpay order:", error)
-    return NextResponse.json({ error: "Failed to create order" }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: "Failed to create order",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 },
+    )
   }
 }

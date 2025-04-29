@@ -151,62 +151,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  // Calculate subtotal with memoization
-  const subtotal = useMemo(() => {
-    return items.reduce((sum, item) => {
-      // Special case for the Rs. 1 coupon
-      if (appliedCoupon?.type === "special" && appliedCoupon?.specialAction === "set_total_to_one") {
-        // For this special coupon, we return exactly ₹1 for the entire order
-        return 1
-      }
-
-      if (item.subscriptionOption) {
-        const option = subscriptionOptions.find((opt) => opt.id === item.subscriptionOption)
-        const discountPercentage = option?.discountPercentage || 0
-        return sum + calculateDiscountedPrice(item.product.price, item.subscriptionDays || 1, discountPercentage)
-      }
-      return sum + calculateDiscountedPrice(item.product.price, item.quantity)
-    }, 0)
-  }, [items, appliedCoupon, calculateDiscountedPrice])
-
-  // Calculate delivery fee with memoization
-  const deliveryFee = useMemo(() => {
-    // If subtotal is 0 or we have the special Rs. 1 coupon, no delivery fee
-    if (subtotal === 0 || (appliedCoupon?.type === "special" && appliedCoupon?.specialAction === "set_total_to_one")) {
-      return 0
-    }
-
-    // Base delivery fee from zipcode validation
-    const baseFee = deliveryFeeAmount
-
-    // Calculate total number of deliveries across all subscription items
-    let totalDeliveries = 0
-
-    items.forEach((item) => {
-      if (item.subscriptionOption && item.subscriptionOption !== "one-time" && item.subscriptionDays) {
-        // For subscription items, count each delivery day
-        totalDeliveries += item.subscriptionDays
-      } else {
-        // For one-time items, count as a single delivery
-        totalDeliveries += 1
-      }
-    })
-
-    // If there are no items with subscriptions, just return the base fee
-    if (totalDeliveries === 0) {
-      return baseFee
-    }
-
-    // Return the base fee multiplied by the number of deliveries
-    return baseFee * totalDeliveries
-  }, [subtotal, appliedCoupon, deliveryFeeAmount, items])
-
-  // Calculate total with memoization
-  const total = useMemo(() => subtotal + deliveryFee, [subtotal, deliveryFee])
-
-  // Calculate item count with memoization
-  const itemCount = useMemo(() => items.reduce((count, item) => count + item.quantity, 0), [items])
-
   // Add item to cart
   const addItem = useCallback(
     (
@@ -332,6 +276,62 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setItems([])
     setOrderId(null)
   }, [])
+
+  // Memoize subtotal calculation
+  const subtotal = useMemo(() => {
+    return items.reduce((sum, item) => {
+      // Special case for the Rs. 1 coupon
+      if (appliedCoupon?.type === "special" && appliedCoupon?.specialAction === "set_total_to_one") {
+        // For this special coupon, we return exactly ₹1 for the entire order
+        return 1
+      }
+
+      if (item.subscriptionOption) {
+        const option = subscriptionOptions.find((opt) => opt.id === item.subscriptionOption)
+        const discountPercentage = option?.discountPercentage || 0
+        return sum + calculateDiscountedPrice(item.product.price, item.subscriptionDays || 1, discountPercentage)
+      }
+      return sum + calculateDiscountedPrice(item.product.price, item.quantity)
+    }, 0)
+  }, [items, appliedCoupon, calculateDiscountedPrice])
+
+  // Memoize delivery fee calculation
+  const deliveryFee = useMemo(() => {
+    // If subtotal is 0 or we have the special Rs. 1 coupon, no delivery fee
+    if (subtotal === 0 || (appliedCoupon?.type === "special" && appliedCoupon?.specialAction === "set_total_to_one")) {
+      return 0
+    }
+
+    // Base delivery fee from zipcode validation
+    const baseFee = deliveryFeeAmount
+
+    // Calculate total number of deliveries across all subscription items
+    let totalDeliveries = 0
+
+    items.forEach((item) => {
+      if (item.subscriptionOption && item.subscriptionOption !== "one-time" && item.subscriptionDays) {
+        // For subscription items, count each delivery day
+        totalDeliveries += item.subscriptionDays
+      } else {
+        // For one-time items, count as a single delivery
+        totalDeliveries += 1
+      }
+    })
+
+    // If there are no items with subscriptions, just return the base fee
+    if (totalDeliveries === 0) {
+      return baseFee
+    }
+
+    // Return the base fee multiplied by the number of deliveries
+    return baseFee * totalDeliveries
+  }, [subtotal, appliedCoupon, deliveryFeeAmount, items])
+
+  // Memoize total calculation
+  const total = useMemo(() => subtotal + deliveryFee, [subtotal, deliveryFee])
+
+  // Memoize item count calculation
+  const itemCount = useMemo(() => items.reduce((count, item) => count + item.quantity, 0), [items])
 
   // Create context value with memoization
   const contextValue = useMemo(

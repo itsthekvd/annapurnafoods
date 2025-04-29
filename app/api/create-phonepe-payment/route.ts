@@ -7,8 +7,37 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { amount, customerInfo, orderId } = body
 
-    if (!amount) {
-      return NextResponse.json({ error: "Amount is required" }, { status: 400 })
+    // Validate required fields
+    if (!amount || amount <= 0) {
+      return NextResponse.json(
+        {
+          error: "Valid amount is required",
+          details: "Amount must be greater than 0",
+        },
+        { status: 400 },
+      )
+    }
+
+    if (!customerInfo?.phone) {
+      return NextResponse.json(
+        {
+          error: "Customer phone is required",
+          details: "Phone number is required for PhonePe payments",
+        },
+        { status: 400 },
+      )
+    }
+
+    // Validate API credentials
+    if (!config.phonePeMerchantId || !config.phonePeApiKey || !config.phonePeKeyIndex) {
+      console.error("Missing PhonePe API credentials")
+      return NextResponse.json(
+        {
+          error: "Payment gateway configuration error",
+          details: "Missing API credentials",
+        },
+        { status: 500 },
+      )
     }
 
     // Generate a unique merchant transaction ID if not provided
@@ -65,6 +94,7 @@ export async function POST(request: Request) {
         {
           error: responseData.message || "Failed to create payment",
           details: responseData,
+          code: responseData.code || "UNKNOWN_ERROR",
         },
         { status: 400 },
       )
@@ -79,6 +109,12 @@ export async function POST(request: Request) {
     })
   } catch (error) {
     console.error("Error creating PhonePe payment:", error)
-    return NextResponse.json({ error: "Failed to create payment" }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: "Failed to create payment",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 },
+    )
   }
 }

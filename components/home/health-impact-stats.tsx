@@ -33,12 +33,17 @@ interface HealthImpactStatsProps {
 export default function HealthImpactStats({ totalMeals }: HealthImpactStatsProps) {
   const [activeIndex, setActiveIndex] = useState(0)
   const [actualMealCount, setActualMealCount] = useState(totalMeals)
+  const [isLoading, setIsLoading] = useState(true)
 
   // Fetch actual meal count from orders data
   useEffect(() => {
     const fetchMealCount = async () => {
       try {
-        const orders = await OrderStorage.getAllOrders()
+        setIsLoading(true)
+        const orders = await OrderStorage.getAllOrders().catch((err) => {
+          console.error("Error fetching orders:", err)
+          return []
+        })
 
         // Calculate total meals from all orders
         let mealCount = 0
@@ -66,8 +71,10 @@ export default function HealthImpactStats({ totalMeals }: HealthImpactStatsProps
           setActualMealCount(mealCount)
         }
       } catch (error) {
-        console.error("Error fetching meal count:", error)
+        console.error("Error in fetchMealCount:", error)
         // Keep using the prop value if there's an error
+      } finally {
+        setIsLoading(false)
       }
     }
 
@@ -117,6 +124,14 @@ export default function HealthImpactStats({ totalMeals }: HealthImpactStatsProps
   ]
 
   const activeStat = stats[activeIndex]
+
+  if (isLoading) {
+    return (
+      <div className="mt-4 text-center">
+        <p className="text-amber-100">Loading health impact statistics...</p>
+      </div>
+    )
+  }
 
   return (
     <div className="mt-4">

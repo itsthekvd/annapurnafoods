@@ -10,6 +10,10 @@ const OrderStorage = {
       console.log("Saving order to Supabase:", orderData.id)
       const supabase = getSupabaseServiceClient() // Use service client for admin operations
 
+      if (!supabase) {
+        throw new Error("Failed to initialize Supabase client")
+      }
+
       // First, insert the order
       const { error: orderError } = await supabase.from("orders").upsert({
         id: orderData.id,
@@ -114,6 +118,11 @@ const OrderStorage = {
     try {
       console.log("Getting all orders from Supabase")
       const supabase = getSupabaseServiceClient() // Use service client for admin operations
+
+      if (!supabase || typeof supabase.from !== "function") {
+        console.error("Invalid Supabase client:", supabase)
+        throw new Error("Invalid Supabase client")
+      }
 
       // Get all orders
       const { data: orders, error: ordersError } = await supabase
@@ -259,6 +268,11 @@ const OrderStorage = {
       console.log("Getting order by ID from Supabase:", orderId)
       const supabase = getSupabaseServiceClient()
 
+      if (!supabase || typeof supabase.from !== "function") {
+        console.error("Invalid Supabase client")
+        throw new Error("Invalid Supabase client")
+      }
+
       // Get the order
       const { data: order, error: orderError } = await supabase.from("orders").select("*").eq("id", orderId).single()
 
@@ -348,6 +362,11 @@ const OrderStorage = {
       console.log("Updating order status in Supabase:", orderId, status)
       const supabase = getSupabaseServiceClient()
 
+      if (!supabase || typeof supabase.from !== "function") {
+        console.error("Invalid Supabase client")
+        throw new Error("Invalid Supabase client")
+      }
+
       const { error } = await supabase.from("orders").update({ status }).eq("id", orderId)
 
       if (error) {
@@ -382,6 +401,11 @@ const OrderStorage = {
     try {
       console.log("Deleting order from Supabase:", orderId)
       const supabase = getSupabaseServiceClient()
+
+      if (!supabase || typeof supabase.from !== "function") {
+        console.error("Invalid Supabase client")
+        throw new Error("Invalid Supabase client")
+      }
 
       // First delete the order items
       const { error: itemsError } = await supabase.from("order_items").delete().eq("order_id", orderId)
