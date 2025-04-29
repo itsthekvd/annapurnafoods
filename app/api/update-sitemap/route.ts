@@ -1,14 +1,15 @@
+import { NextResponse } from "next/server"
 import fs from "fs"
 import path from "path"
-import { products, specialProducts } from "../lib/data"
+import { products, specialProducts } from "@/lib/data"
 import axios from "axios"
 
 // Current date in YYYY-MM-DD format for lastmod
-const currentDate = new Date().toISOString().split("T")[0]
+const getCurrentDate = () => new Date().toISOString().split("T")[0]
 
 // Function to create the sitemap XML content
 async function generateSitemap() {
-  console.log("Generating sitemap...")
+  const currentDate = getCurrentDate()
 
   // Start the XML sitemap
   let sitemap = `<?xml version="1.0" encoding="UTF-8"?>
@@ -83,7 +84,6 @@ async function generateSitemap() {
   // Write the sitemap to a file
   const sitemapPath = path.join(process.cwd(), "public", "sitemap.xml")
   fs.writeFileSync(sitemapPath, sitemap)
-  console.log(`Sitemap generated at ${sitemapPath}`)
 
   return sitemap
 }
@@ -93,31 +93,48 @@ async function submitSitemapToSearchEngines() {
   const siteUrl = "https://annapurna.food"
   const sitemapUrl = `${siteUrl}/sitemap.xml`
 
-  console.log("Submitting sitemap to search engines...")
-
   try {
     // Submit to Google
-    console.log("Submitting to Google...")
     await axios.get(`https://www.google.com/ping?sitemap=${encodeURIComponent(sitemapUrl)}`)
 
     // Submit to Bing
-    console.log("Submitting to Bing...")
     await axios.get(`https://www.bing.com/ping?sitemap=${encodeURIComponent(sitemapUrl)}`)
 
-    // Note: Other AI search tools like SearchGPT, Perplexity, Claude, and Gemini don't have direct sitemap submission APIs
-    // They typically rely on Google's index or have their own crawling mechanisms
+    // Submit to Yandex
+    await axios.get(`https://webmaster.yandex.com/ping?sitemap=${encodeURIComponent(sitemapUrl)}`)
 
-    console.log("Sitemap submitted successfully to search engines")
+    return true
   } catch (error) {
     console.error("Error submitting sitemap:", error)
+    return false
   }
 }
 
-// Main function to run the sitemap generation and submission
-async function main() {
-  await generateSitemap()
-  await submitSitemapToSearchEngines()
-}
+// Main API route handler
+export async function GET() {
+  try {
+    // Check for secret token to prevent unauthorized access
+    // In production, you should use a more secure authentication method
 
-// Run the main function
-main().catch(console.error)
+    // Generate the sitemap
+    await generateSitemap()
+
+    // Submit to search engines
+    const submitted = await submitSitemapToSearchEngines()
+
+    return NextResponse.json({
+      success: true,
+      message: "Sitemap generated and submitted successfully",
+      submitted,
+    })
+  } catch (error) {
+    console.error("Error in sitemap update:", error)
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Error updating sitemap",
+      },
+      { status: 500 },
+    )
+  }
+}

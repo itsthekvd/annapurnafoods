@@ -64,7 +64,8 @@
     "@supabase/supabase-js": "latest",
     "react-confetti": "latest",
     "fs": "latest",
-    "path": "latest"
+    "path": "latest",
+    "axios": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",

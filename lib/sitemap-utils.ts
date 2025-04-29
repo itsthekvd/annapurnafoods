@@ -1,14 +1,14 @@
 import fs from "fs"
 import path from "path"
-import { products, specialProducts } from "../lib/data"
+import { products, specialProducts } from "./data"
 import axios from "axios"
 
 // Current date in YYYY-MM-DD format for lastmod
-const currentDate = new Date().toISOString().split("T")[0]
+export const getCurrentDate = () => new Date().toISOString().split("T")[0]
 
 // Function to create the sitemap XML content
-async function generateSitemap() {
-  console.log("Generating sitemap...")
+export async function generateSitemap() {
+  const currentDate = getCurrentDate()
 
   // Start the XML sitemap
   let sitemap = `<?xml version="1.0" encoding="UTF-8"?>
@@ -83,41 +83,65 @@ async function generateSitemap() {
   // Write the sitemap to a file
   const sitemapPath = path.join(process.cwd(), "public", "sitemap.xml")
   fs.writeFileSync(sitemapPath, sitemap)
-  console.log(`Sitemap generated at ${sitemapPath}`)
 
   return sitemap
 }
 
 // Function to submit sitemap to search engines
-async function submitSitemapToSearchEngines() {
+export async function submitSitemapToSearchEngines() {
   const siteUrl = "https://annapurna.food"
   const sitemapUrl = `${siteUrl}/sitemap.xml`
 
-  console.log("Submitting sitemap to search engines...")
+  const results = {
+    google: false,
+    bing: false,
+    yandex: false,
+  }
 
   try {
     // Submit to Google
-    console.log("Submitting to Google...")
-    await axios.get(`https://www.google.com/ping?sitemap=${encodeURIComponent(sitemapUrl)}`)
+    try {
+      await axios.get(`https://www.google.com/ping?sitemap=${encodeURIComponent(sitemapUrl)}`)
+      results.google = true
+    } catch (error) {
+      console.error("Error submitting to Google:", error)
+    }
 
     // Submit to Bing
-    console.log("Submitting to Bing...")
-    await axios.get(`https://www.bing.com/ping?sitemap=${encodeURIComponent(sitemapUrl)}`)
+    try {
+      await axios.get(`https://www.bing.com/ping?sitemap=${encodeURIComponent(sitemapUrl)}`)
+      results.bing = true
+    } catch (error) {
+      console.error("Error submitting to Bing:", error)
+    }
 
-    // Note: Other AI search tools like SearchGPT, Perplexity, Claude, and Gemini don't have direct sitemap submission APIs
-    // They typically rely on Google's index or have their own crawling mechanisms
+    // Submit to Yandex
+    try {
+      await axios.get(`https://webmaster.yandex.com/ping?sitemap=${encodeURIComponent(sitemapUrl)}`)
+      results.yandex = true
+    } catch (error) {
+      console.error("Error submitting to Yandex:", error)
+    }
 
-    console.log("Sitemap submitted successfully to search engines")
+    return results
   } catch (error) {
     console.error("Error submitting sitemap:", error)
+    return results
   }
 }
 
-// Main function to run the sitemap generation and submission
-async function main() {
-  await generateSitemap()
-  await submitSitemapToSearchEngines()
-}
+// Function to log sitemap submission results
+export function logSitemapSubmission(results: any) {
+  const logPath = path.join(process.cwd(), "logs", "sitemap-submissions.log")
+  const timestamp = new Date().toISOString()
+  const logEntry = `${timestamp} - Google: ${results.google}, Bing: ${results.bing}, Yandex: ${results.yandex}\n`
 
-// Run the main function
-main().catch(console.error)
+  // Create logs directory if it doesn't exist
+  const logsDir = path.join(process.cwd(), "logs")
+  if (!fs.existsSync(logsDir)) {
+    fs.mkdirSync(logsDir, { recursive: true })
+  }
+
+  // Append to log file
+  fs.appendFileSync(logPath, logEntry)
+}
