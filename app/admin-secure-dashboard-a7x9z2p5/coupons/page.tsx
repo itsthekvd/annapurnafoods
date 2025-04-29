@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import { Loader2 } from "lucide-react"
-import { createClientComponentClient } from "@supabase/supabase-js"
+import { getSupabaseClient } from "@/lib/supabase-client"
 import { availableCoupons } from "@/lib/data"
 import type { Coupon } from "@/lib/types"
 
@@ -13,11 +13,12 @@ export default function CouponManagementPage() {
   const [coupons, setCoupons] = useState<(Coupon & { id?: string })[]>([])
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState<string | null>(null)
-  const supabase = createClientComponentClient()
 
   useEffect(() => {
     async function fetchCoupons() {
       try {
+        const supabase = getSupabaseClient()
+
         // Check if coupons table exists
         const { data: tableExists } = await supabase.from("coupons").select("id").limit(1).maybeSingle()
 
@@ -34,24 +35,34 @@ export default function CouponManagementPage() {
       } catch (error) {
         console.error("Error fetching coupons:", error)
         // Fallback to static data if database fails
-        setCoupons(availableCoupons)
+        setCoupons(
+          availableCoupons.map((coupon) => ({
+            ...coupon,
+            id: coupon.code,
+          })),
+        )
       } finally {
         setLoading(false)
       }
     }
 
     fetchCoupons()
-  }, [supabase])
+  }, [])
 
   async function initializeCouponsTable() {
     try {
-      // Create coupons table
-      await supabase.rpc("create_coupons_table_if_not_exists")
+      const supabase = getSupabaseClient()
+
+      // Create coupons table if it doesn't exist
+      await supabase.rpc("create_coupons_table_if_not_exists").catch((err) => {
+        console.error("Error creating coupons table:", err)
+        // Continue execution even if RPC fails
+      })
 
       // Insert initial coupons
       const couponsWithIds = availableCoupons.map((coupon) => ({
         ...coupon,
-        id: crypto.randomUUID(),
+        id: coupon.code, // Use code as ID for simplicity
       }))
 
       const { data, error } = await supabase.from("coupons").insert(couponsWithIds).select()
@@ -61,7 +72,7 @@ export default function CouponManagementPage() {
       console.error("Error initializing coupons table:", error)
       return availableCoupons.map((coupon) => ({
         ...coupon,
-        id: crypto.randomUUID(),
+        id: coupon.code,
       }))
     }
   }
@@ -71,6 +82,7 @@ export default function CouponManagementPage() {
 
     setUpdating(coupon.id)
     try {
+      const supabase = getSupabaseClient()
       const newStatus = !coupon.isActive
       const { error } = await supabase.from("coupons").update({ isActive: newStatus }).eq("id", coupon.id)
 
