@@ -76,23 +76,30 @@ export const specialProducts: Product[] = [
 // Function to fetch products from the database
 export async function fetchProductsFromDB(): Promise<Product[]> {
   try {
+    // Check if we're in a browser environment
+    const isClient = typeof window !== "undefined"
+
     // Check if we should bypass cache
     const bypassCache =
-      (typeof window !== "undefined" && window.location.href.includes("admin-secure-dashboard")) ||
-      window.location.search.includes("refresh=true")
+      isClient &&
+      (window.location.href.includes("admin-secure-dashboard") || window.location.search.includes("refresh=true"))
 
-    // Check for cached data if not in admin dashboard
-    if (!bypassCache && typeof window !== "undefined") {
-      const cachedData = localStorage.getItem("annapurna-products-cache")
-      const cachedTime = localStorage.getItem("annapurna-products-cache-time")
+    // Check for cached data if in browser and not in admin dashboard
+    if (isClient && !bypassCache) {
+      try {
+        const cachedData = localStorage.getItem("annapurna-products-cache")
+        const cachedTime = localStorage.getItem("annapurna-products-cache-time")
 
-      // Use cache if it's less than 5 minutes old
-      if (cachedData && cachedTime) {
-        const cacheAge = Date.now() - Number.parseInt(cachedTime)
-        if (cacheAge < 5 * 60 * 1000) {
-          // 5 minutes
-          return JSON.parse(cachedData)
+        // Use cache if it's less than 5 minutes old
+        if (cachedData && cachedTime) {
+          const cacheAge = Date.now() - Number.parseInt(cachedTime)
+          if (cacheAge < 5 * 60 * 1000) {
+            // 5 minutes
+            return JSON.parse(cachedData)
+          }
         }
+      } catch (e) {
+        console.warn("Error accessing localStorage:", e)
       }
     }
 
@@ -120,10 +127,14 @@ export async function fetchProductsFromDB(): Promise<Product[]> {
       isSubscription: item.is_subscription || false,
     }))
 
-    // Cache the data if not in admin dashboard
-    if (!bypassCache && typeof window !== "undefined") {
-      localStorage.setItem("annapurna-products-cache", JSON.stringify(transformedProducts))
-      localStorage.setItem("annapurna-products-cache-time", Date.now().toString())
+    // Cache the data if in browser and not in admin dashboard
+    if (isClient && !bypassCache) {
+      try {
+        localStorage.setItem("annapurna-products-cache", JSON.stringify(transformedProducts))
+        localStorage.setItem("annapurna-products-cache-time", Date.now().toString())
+      } catch (e) {
+        console.warn("Error writing to localStorage:", e)
+      }
     }
 
     return transformedProducts
@@ -261,6 +272,6 @@ export async function getAllProducts(): Promise<Product[]> {
     return await fetchProductsFromDB()
   } catch (error) {
     console.error("Error fetching products:", error)
-    return products
+    return [...products, ...specialProducts]
   }
 }

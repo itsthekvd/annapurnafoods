@@ -1,18 +1,19 @@
 import { Suspense } from "react"
-import { getAllProducts } from "@/lib/data"
+import { products, specialProducts } from "@/lib/data"
 import ProductGrid from "@/components/products/product-grid"
 import BreadcrumbSchema from "@/components/schema/breadcrumb-schema"
 import SeoMetaTags from "@/components/meta/seo-meta-tags"
 import Script from "next/script"
 
 export default function MenuPage() {
-  const products = getAllProducts()
+  // Use static products for initial render to ensure we always have an array
+  const staticProducts = [...products, ...specialProducts]
 
   // Generate menu schema
   const menuSchema = {
     "@context": "https://schema.org",
     "@type": "ItemList",
-    itemListElement: products.map((product, index) => ({
+    itemListElement: staticProducts.map((product, index) => ({
       "@type": "ListItem",
       position: index + 1,
       item: {
@@ -66,7 +67,7 @@ export default function MenuPage() {
         <h1 className="text-3xl font-bold mb-8 text-center">Our Menu</h1>
 
         <Suspense fallback={<div>Loading products...</div>}>
-          <ProductGrid products={products} />
+          <ProductGrid products={staticProducts} />
         </Suspense>
       </div>
     </>

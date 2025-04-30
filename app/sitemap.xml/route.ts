@@ -1,15 +1,13 @@
 import { fetchProductsFromDB } from "@/lib/data"
 import { NextResponse } from "next/server"
-import { headers } from "next/headers"
 
 export async function GET() {
   try {
-    // Get the host from request headers to ensure correct domain is used
-    const headersList = headers()
-    const host = headersList.get("host") || "annapurna.food"
+    // Use environment variables for the host instead of headers
+    const host = process.env.NEXT_PUBLIC_SITE_URL || "annapurna.food"
     const protocol = process.env.NODE_ENV === "production" ? "https" : "http"
 
-    // Base URL of your website - dynamically determined
+    // Base URL of your website - using environment variables
     const BASE_URL = `${protocol}://${host}`
 
     // Current date for lastmod
@@ -87,6 +85,22 @@ export async function GET() {
     })
   } catch (error) {
     console.error("Error generating sitemap:", error)
-    return new NextResponse("Error generating sitemap", { status: 500 })
+    // Return a basic sitemap with just the homepage in case of error
+    const fallbackSitemap = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>${process.env.NEXT_PUBLIC_SITE_URL || "https://annapurna.food"}/</loc>
+    <lastmod>${new Date().toISOString()}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+</urlset>`
+
+    return new NextResponse(fallbackSitemap, {
+      headers: {
+        "Content-Type": "application/xml",
+        "Cache-Control": "public, max-age=3600, s-maxage=3600",
+      },
+    })
   }
 }
