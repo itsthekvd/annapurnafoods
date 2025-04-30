@@ -110,10 +110,16 @@ export default function ProductManagementPage() {
         `
 
         // Execute the SQL directly
-        await supabase.rpc("exec_sql", { sql: createTableSQL }).catch((err) => {
-          console.error("Error creating table via RPC:", err)
+        try {
+          const { error: rpcError } = await supabase.rpc("exec_sql", { sql: createTableSQL })
+          if (rpcError) {
+            console.error("Error creating table via RPC:", rpcError)
+            // Continue even if this fails - we'll try the insert anyway
+          }
+        } catch (err) {
+          console.error("Exception when creating table via RPC:", err)
           // Continue even if this fails - we'll try the insert anyway
-        })
+        }
       }
 
       // Update existing products
