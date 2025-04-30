@@ -9,6 +9,8 @@ import { Toaster } from "@/components/ui/toaster"
 import Providers from "./providers"
 import ImageCacheInitializer from "@/components/image-cache-initializer"
 import Script from "next/script"
+import SchemaMarkup from "@/components/schema-markup"
+import { generateOrganizationSchema, generateLocalBusinessSchema } from "@/lib/schema-utils"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -53,6 +55,9 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  // Base schemas that should appear on all pages
+  const baseSchemas = [generateOrganizationSchema(), generateLocalBusinessSchema()]
+
   return (
     <html lang="en">
       <head>
@@ -99,6 +104,9 @@ export default function RootLayout({
             `,
           }}
         />
+
+        {/* Base Schema Markup for all pages */}
+        <SchemaMarkup schemas={baseSchemas} />
       </head>
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>

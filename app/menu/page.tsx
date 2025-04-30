@@ -1,6 +1,8 @@
 import type { Metadata } from "next"
 import ProductGrid from "@/components/products/product-grid"
 import { products, specialProducts } from "@/lib/data"
+import SchemaMarkup from "@/components/schema-markup"
+import { generatePageSchemas } from "@/lib/schema-utils"
 
 export const metadata: Metadata = {
   title: "Menu - Healthy Meal Delivery Services in Coimbatore | Annapurna Foods",
@@ -21,26 +23,36 @@ export const metadata: Metadata = {
   },
 }
 
-export default function MenuPage() {
+export default async function MenuPage() {
+  const allProducts = [...products, ...specialProducts]
+
+  // Generate menu page schemas
+  const menuSchemas = generatePageSchemas("menu", { products: allProducts })
+
   return (
-    <div className="container mx-auto px-4 py-12">
-      <div className="text-center mb-12">
-        <h1 className="text-3xl font-bold text-amber-800 mb-4">Healthy Home Cooked Food Delivery Menu in Coimbatore</h1>
-        <p className="text-gray-600 max-w-2xl mx-auto">
-          Delicious, nutritious Sattvik meals prepared with love and care by Isha Volunteers. Daily meal delivery
-          services near Isha Yoga Center Coimbatore.
-        </p>
-      </div>
+    <>
+      <SchemaMarkup schemas={menuSchemas} />
+      <div className="container mx-auto px-4 py-12">
+        <div className="text-center mb-12">
+          <h1 className="text-3xl font-bold text-amber-800 mb-4">
+            Healthy Home Cooked Food Delivery Menu in Coimbatore
+          </h1>
+          <p className="text-gray-600 max-w-2xl mx-auto">
+            Delicious, nutritious Sattvik meals prepared with love and care by Isha Volunteers. Daily meal delivery
+            services near Isha Yoga Center Coimbatore.
+          </p>
+        </div>
 
-      <div className="mb-16">
-        <h2 className="text-2xl font-semibold text-amber-700 mb-6">Daily Meals</h2>
-        <ProductGrid products={products} />
-      </div>
+        <div className="mb-16">
+          <h2 className="text-2xl font-semibold text-amber-700 mb-6">Daily Meals</h2>
+          <ProductGrid products={products} />
+        </div>
 
-      <div>
-        <h2 className="text-2xl font-semibold text-amber-700 mb-6">Festival Specials</h2>
-        <ProductGrid products={specialProducts} />
+        <div>
+          <h2 className="text-2xl font-semibold text-amber-700 mb-6">Festival Specials</h2>
+          <ProductGrid products={specialProducts} />
+        </div>
       </div>
-    </div>
+    </>
   )
 }

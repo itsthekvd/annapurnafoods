@@ -1,5 +1,7 @@
 import type { Metadata } from "next"
 import CheckoutPageClient from "./checkout-page-client"
+import SchemaMarkup from "@/components/schema-markup"
+import { generatePageSchemas } from "@/lib/schema-utils"
 
 export const metadata: Metadata = {
   title: "Checkout - Annapurna Foods | Home Meal Delivery in Coimbatore",
@@ -25,5 +27,13 @@ export const metadata: Metadata = {
 }
 
 export default function CheckoutPage() {
-  return <CheckoutPageClient />
+  // Generate checkout page schemas
+  const checkoutSchemas = generatePageSchemas("checkout")
+
+  return (
+    <>
+      <SchemaMarkup schemas={checkoutSchemas} />
+      <CheckoutPageClient />
+    </>
+  )
 }

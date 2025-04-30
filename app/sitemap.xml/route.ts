@@ -1,10 +1,16 @@
 import { fetchProductsFromDB } from "@/lib/data"
 import { NextResponse } from "next/server"
+import { headers } from "next/headers"
 
 export async function GET() {
   try {
-    // Base URL of your website
-    const BASE_URL = "https://annapurnafoods.in"
+    // Get the host from request headers to ensure correct domain is used
+    const headersList = headers()
+    const host = headersList.get("host") || "annapurna.food"
+    const protocol = process.env.NODE_ENV === "production" ? "https" : "http"
+
+    // Base URL of your website - dynamically determined
+    const BASE_URL = `${protocol}://${host}`
 
     // Current date for lastmod
     const date = new Date().toISOString()

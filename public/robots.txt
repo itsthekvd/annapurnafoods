@@ -1,9 +1,11 @@
-# *
+# robots.txt for Annapurna Foods
 User-agent: *
 Allow: /
 
-# Host
-Host: https://annapurnafoods.in
+# Disallow admin areas
+Disallow: /admin/
+Disallow: /admin-dashboard-secure/
+Disallow: /admin-secure-dashboard-a7x9z2p5/
 
-# Sitemaps
-Sitemap: https://annapurnafoods.in/sitemap.xml
+# Sitemap location
+Sitemap: https://annapurna.food/sitemap.xml

@@ -1,14 +1,16 @@
-import CartClientPage from "./CartClientPage"
 import type { Metadata } from "next"
+import CartClientPage from "./CartClientPage"
+import SchemaMarkup from "@/components/schema-markup"
+import { generatePageSchemas } from "@/lib/schema-utils"
 
 export const metadata: Metadata = {
-  title: "Your Cart - Annapurna Foods | Home Food Delivery in Coimbatore",
+  title: "Shopping Cart - Annapurna Foods | Home Meal Delivery in Coimbatore",
   description:
-    "Review your selected home-cooked Sattvik meals before checkout. Fresh food delivery near Isha Yoga Center Coimbatore.",
+    "Review your order of fresh, home-cooked Sattvik meals before checkout. Healthy food delivery near Isha Yoga Center Coimbatore.",
   openGraph: {
-    title: "Your Cart - Annapurna Foods Home Food Delivery",
+    title: "Shopping Cart - Annapurna Foods Home Meal Delivery",
     description:
-      "Review your selected home-cooked Sattvik meals before checkout. Fresh food delivery near Isha Yoga Center Coimbatore.",
+      "Review your order of fresh, home-cooked Sattvik meals before checkout. Healthy food delivery near Isha Yoga Center Coimbatore.",
     images: [
       {
         url: "https://ucarecdn.com/f2132019-968c-4f1e-9bae-46ec7daa3d44/Brunchscaled.jpg",
@@ -21,5 +23,13 @@ export const metadata: Metadata = {
 }
 
 export default function CartPage() {
-  return <CartClientPage />
+  // Generate cart page schemas
+  const cartSchemas = generatePageSchemas("cart")
+
+  return (
+    <>
+      <SchemaMarkup schemas={cartSchemas} />
+      <CartClientPage />
+    </>
+  )
 }

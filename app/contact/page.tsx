@@ -1,5 +1,7 @@
 import type { Metadata } from "next"
 import ContactPageClient from "./ContactPageClient"
+import SchemaMarkup from "@/components/schema-markup"
+import { generatePageSchemas } from "@/lib/schema-utils"
 
 export const metadata: Metadata = {
   title: "Contact Us - Annapurna Foods | Home Food Delivery in Coimbatore",
@@ -21,5 +23,13 @@ export const metadata: Metadata = {
 }
 
 export default function ContactPage() {
-  return <ContactPageClient />
+  // Generate contact page schemas
+  const contactSchemas = generatePageSchemas("contact")
+
+  return (
+    <>
+      <SchemaMarkup schemas={contactSchemas} />
+      <ContactPageClient />
+    </>
+  )
 }
