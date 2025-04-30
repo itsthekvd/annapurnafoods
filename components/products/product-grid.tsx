@@ -89,13 +89,15 @@ export default function ProductGrid() {
                 View Details
               </Button>
             </Link>
-            <Button
-              className="bg-amber-700 hover:bg-amber-800"
-              onClick={() => handleAddToCart(product)}
-              disabled={product.isSubscription}
-            >
-              {product.isSubscription ? "View Subscription" : "Add to Cart"}
-            </Button>
+            {product.isSubscription ? (
+              <Link href={`/menu/${product.slug}`}>
+                <Button className="bg-amber-700 hover:bg-amber-800">View Subscription</Button>
+              </Link>
+            ) : (
+              <Button className="bg-amber-700 hover:bg-amber-800" onClick={() => handleAddToCart(product)}>
+                Add to Cart
+              </Button>
+            )}
           </CardFooter>
         </Card>
       ))}
