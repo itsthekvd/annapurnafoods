@@ -255,3 +255,12 @@ export const availableCoupons: Coupon[] = [
 
 // Default promotional coupon
 export const promotionalCoupon = availableCoupons[0]
+
+export async function getAllProducts(): Promise<Product[]> {
+  try {
+    return await fetchProductsFromDB()
+  } catch (error) {
+    console.error("Error fetching products:", error)
+    return products
+  }
+}

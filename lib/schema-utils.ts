@@ -5,6 +5,30 @@ import type { Product } from "./types"
  * This helps search engines understand our content better
  */
 
+export interface HowToStep {
+  "@type": "HowToStep"
+  name: string
+  text: string
+  url?: string
+  image?: string
+}
+
+export interface HowToSchema {
+  "@context": "https://schema.org"
+  "@type": "HowTo"
+  name: string
+  description: string
+  totalTime?: string
+  estimatedCost?: {
+    "@type": "MonetaryAmount"
+    currency: string
+    value: string
+  }
+  supply?: string[]
+  tool?: string[]
+  step: HowToStep[]
+}
+
 // Function to get the base URL dynamically
 export function getBaseUrl() {
   // Use the environment variable if available
@@ -643,6 +667,7 @@ export function generateRecipeSchema(recipe: {
     sugarContent?: string
     proteinContent?: string
   }
+  video?: string
 }) {
   const siteUrl = getBaseUrl()
 
@@ -711,31 +736,77 @@ export function generateRecipeSchema(recipe: {
 }
 
 // HowTo schema for delivery or ordering instructions
-export function generateHowToSchema(howTo: {
+export function generateHowToSchema({
+  name,
+  description,
+  steps,
+  totalTime,
+  estimatedCost,
+  supplies,
+  tools,
+}: {
   name: string
   description: string
-  steps: { name: string; text: string; image?: string }[]
-}) {
-  const siteUrl = getBaseUrl()
-
-  return {
-    "@context": "https://schema.org",
-    "@type": "HowTo",
-    name: howTo.name,
-    description: howTo.description,
-    step: howTo.steps.map((step, index) => ({
+  steps: { name: string; text: string; url?: string; image?: string }[]
+  totalTime?: string
+  estimatedCost?: { currency: string; value: string }
+  supplies?: string[]
+  tools?: string[]
+}): HowToSchema {
+  try {
+    const howToSteps: HowToStep[] = steps.map((step) => ({
       "@type": "HowToStep",
-      position: index + 1,
       name: step.name,
       text: step.text,
-      image: step.image
-        ? {
-            "@type": "ImageObject",
-            url: step.image,
-          }
-        : undefined,
-      url: `${siteUrl}/how-to#step-${index + 1}`,
-    })),
+      ...(step.url ? { url: step.url } : {}),
+      ...(step.image ? { image: step.image } : {}),
+    }))
+
+    const schema: HowToSchema = {
+      "@context": "https://schema.org",
+      "@type": "HowTo",
+      name,
+      description,
+      step: howToSteps,
+    }
+
+    if (totalTime) {
+      schema.totalTime = totalTime
+    }
+
+    if (estimatedCost) {
+      schema.estimatedCost = {
+        "@type": "MonetaryAmount",
+        currency: estimatedCost.currency,
+        value: estimatedCost.value,
+      }
+    }
+
+    if (supplies && supplies.length > 0) {
+      schema.supply = supplies
+    }
+
+    if (tools && tools.length > 0) {
+      schema.tool = tools
+    }
+
+    return schema
+  } catch (error) {
+    console.error("Error generating HowTo schema:", error)
+    // Return a minimal valid schema to prevent rendering errors
+    return {
+      "@context": "https://schema.org",
+      "@type": "HowTo",
+      name: "Instructions",
+      description: "Step by step instructions",
+      step: [
+        {
+          "@type": "HowToStep",
+          name: "Default Step",
+          text: "Please follow product instructions",
+        },
+      ],
+    }
   }
 }
 
@@ -935,26 +1006,6 @@ export function generatePageSchemas(pageName: string, pageData: any = {}) {
       )
 
       // Add HowTo schema for checkout process
-      schemas.push(
-        generateHowToSchema({
-          name: "How to Order Food from Annapurna Foods",
-          description: "Follow these simple steps to order fresh, home-cooked Sattvik meals from Annapurna Foods.",
-          steps: [
-            { name: "Select Items", text: "Browse our menu and select the items you want to order." },
-            {
-              name: "Review Cart",
-              text: "Review your cart to ensure you have selected the correct items and quantities.",
-            },
-            { name: "Enter Delivery Details", text: "Enter your delivery address and contact information." },
-            {
-              name: "Choose Payment Method",
-              text: "Select your preferred payment method: Cash on Delivery, UPI, or Card Payment.",
-            },
-            { name: "Place Order", text: "Confirm your order and complete the payment process." },
-            { name: "Track Order", text: "Use the order tracking feature to monitor the status of your delivery." },
-          ],
-        }),
-      )
       break
 
     case "contact":
