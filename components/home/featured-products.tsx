@@ -10,17 +10,23 @@ import { useCart } from "@/contexts/cart-context"
 import { getImageUrlWithFallback } from "@/lib/image-utils"
 import { products as defaultProducts, fetchProductsFromDB } from "@/lib/data"
 import type { Product } from "@/lib/types"
+import { RefreshCw } from "lucide-react"
 
 export default function FeaturedProducts() {
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const { addItem } = useCart()
   const router = useRouter()
+  const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => {
     const loadProducts = async () => {
       try {
         setIsLoading(true)
+        // Clear cache before fetching to ensure fresh data
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("annapurna-products-cache")
+        }
         // This will return hardcoded data if the database table doesn't exist
         const products = await fetchProductsFromDB()
         // Only show the first 4 products
@@ -35,7 +41,7 @@ export default function FeaturedProducts() {
     }
 
     loadProducts()
-  }, [])
+  }, [refreshKey])
 
   const handleAddToCart = (productId: string) => {
     const product = featuredProducts.find((p) => p.id === productId)
@@ -52,6 +58,10 @@ export default function FeaturedProducts() {
         router.push("/cart")
       }
     }
+  }
+
+  const handleRefresh = () => {
+    setRefreshKey((prev) => prev + 1)
   }
 
   if (isLoading) {
@@ -88,11 +98,16 @@ export default function FeaturedProducts() {
   return (
     <section className="py-16 bg-white">
       <div className="container mx-auto px-4">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold text-amber-800 mb-4">Check Our Menu</h2>
-          <p className="text-gray-600 max-w-2xl mx-auto">
-            Delicious, nutritious Sattvik meals prepared with love and care by Isha Volunteers.
-          </p>
+        <div className="flex justify-between items-center mb-12">
+          <div className="text-center flex-1">
+            <h2 className="text-3xl font-bold text-amber-800 mb-4">Check Our Menu</h2>
+            <p className="text-gray-600 max-w-2xl mx-auto">
+              Delicious, nutritious Sattvik meals prepared with love and care by Isha Volunteers.
+            </p>
+          </div>
+          <Button variant="outline" onClick={handleRefresh} className="flex items-center gap-2">
+            <RefreshCw className="h-4 w-4" /> Refresh
+          </Button>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">

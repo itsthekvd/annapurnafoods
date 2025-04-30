@@ -76,10 +76,30 @@ export const specialProducts: Product[] = [
 // Function to fetch products from the database
 export async function fetchProductsFromDB(): Promise<Product[]> {
   try {
+    // Check if we should bypass cache
+    const bypassCache =
+      (typeof window !== "undefined" && window.location.href.includes("admin-secure-dashboard")) ||
+      window.location.search.includes("refresh=true")
+
+    // Check for cached data if not in admin dashboard
+    if (!bypassCache && typeof window !== "undefined") {
+      const cachedData = localStorage.getItem("annapurna-products-cache")
+      const cachedTime = localStorage.getItem("annapurna-products-cache-time")
+
+      // Use cache if it's less than 5 minutes old
+      if (cachedData && cachedTime) {
+        const cacheAge = Date.now() - Number.parseInt(cachedTime)
+        if (cacheAge < 5 * 60 * 1000) {
+          // 5 minutes
+          return JSON.parse(cachedData)
+        }
+      }
+    }
+
     const supabase = getSupabaseClient()
 
-    // Try to fetch products from the database
-    const { data, error } = await supabase.from("products").select("*")
+    // Try to fetch products from the database with cache control
+    const { data, error } = await supabase.from("products").select("*").order("created_at", { ascending: true })
 
     // If there's an error or no data, return the hardcoded products
     if (error || !data || data.length === 0) {
@@ -88,7 +108,7 @@ export async function fetchProductsFromDB(): Promise<Product[]> {
     }
 
     // Transform the data to match the Product type
-    return data.map((item) => ({
+    const transformedProducts = data.map((item) => ({
       id: item.id,
       name: item.name,
       slug: item.slug || item.id.toLowerCase().replace(/\s+/g, "-"),
@@ -99,6 +119,14 @@ export async function fetchProductsFromDB(): Promise<Product[]> {
       image: item.image || getImageUrlWithFallback(item.id),
       isSubscription: item.is_subscription || false,
     }))
+
+    // Cache the data if not in admin dashboard
+    if (!bypassCache && typeof window !== "undefined") {
+      localStorage.setItem("annapurna-products-cache", JSON.stringify(transformedProducts))
+      localStorage.setItem("annapurna-products-cache-time", Date.now().toString())
+    }
+
+    return transformedProducts
   } catch (error) {
     console.error("Error in fetchProductsFromDB:", error)
     return [...products, ...specialProducts] // Fallback to hardcoded products

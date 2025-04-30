@@ -11,6 +11,7 @@ import type { Product } from "@/lib/types"
 import { getImageUrlWithFallback } from "@/lib/image-utils"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { subscriptionOptions } from "@/lib/data"
+import { RefreshCw } from "lucide-react"
 
 export default function ProductGrid() {
   const [products, setProducts] = useState<Product[]>([])
@@ -18,11 +19,16 @@ export default function ProductGrid() {
   const [expandedSubscriptionId, setExpandedSubscriptionId] = useState<string | null>(null)
   const [selectedSubscriptionOption, setSelectedSubscriptionOption] = useState<string>("weekly")
   const { addItem } = useCart()
+  const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => {
     const loadProducts = async () => {
       try {
         setIsLoading(true)
+        // Clear cache before fetching to ensure fresh data
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("annapurna-products-cache")
+        }
         const fetchedProducts = await fetchProductsFromDB()
         setProducts(fetchedProducts)
       } catch (error) {
@@ -33,7 +39,7 @@ export default function ProductGrid() {
     }
 
     loadProducts()
-  }, [])
+  }, [refreshKey])
 
   const handleAddToCart = (product: Product) => {
     // Make sure we're adding the product with the correct image URL
@@ -66,13 +72,16 @@ export default function ProductGrid() {
         image: getImageUrlWithFallback(product.id),
       }
 
-      // Use the option's durationInDays instead of selectedSubscriptionDays
       addItem(productWithImage, 1, undefined, selectedSubscriptionOption, option.durationInDays)
 
       setExpandedSubscriptionId(null)
     },
     [addItem, selectedSubscriptionOption],
   )
+
+  const handleRefresh = () => {
+    setRefreshKey((prev) => prev + 1)
+  }
 
   if (isLoading) {
     return (
@@ -96,85 +105,92 @@ export default function ProductGrid() {
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {products.map((product) => (
-        <Card key={product.id} className="overflow-hidden border-amber-100 hover:shadow-md transition-shadow">
-          <div className="relative h-48">
-            <Image
-              src={product.image || "/placeholder.svg?height=400&width=400&query=food"}
-              alt={product.name}
-              fill
-              className="object-cover"
-            />
-          </div>
-          <CardContent className="pt-6">
-            <h3 className="text-lg font-semibold mb-2">{product.name}</h3>
-            <div className="flex items-center mb-2">
-              <span className="text-amber-700 font-bold">₹{product.price.toFixed(2)}</span>
-              {product.originalPrice && (
-                <span className="text-gray-500 text-sm line-through ml-2">₹{product.originalPrice.toFixed(2)}</span>
-              )}
+    <>
+      <div className="flex justify-end mb-4">
+        <Button variant="outline" onClick={handleRefresh} className="flex items-center gap-2">
+          <RefreshCw className="h-4 w-4" /> Refresh Products
+        </Button>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {products.map((product) => (
+          <Card key={product.id} className="overflow-hidden border-amber-100 hover:shadow-md transition-shadow">
+            <div className="relative h-48">
+              <Image
+                src={product.image || "/placeholder.svg?height=400&width=400&query=food"}
+                alt={product.name}
+                fill
+                className="object-cover"
+              />
             </div>
-            <p className="text-gray-600 text-sm">{product.description}</p>
-          </CardContent>
+            <CardContent className="pt-6">
+              <h3 className="text-lg font-semibold mb-2">{product.name}</h3>
+              <div className="flex items-center mb-2">
+                <span className="text-amber-700 font-bold">₹{product.price.toFixed(2)}</span>
+                {product.originalPrice && (
+                  <span className="text-gray-500 text-sm line-through ml-2">₹{product.originalPrice.toFixed(2)}</span>
+                )}
+              </div>
+              <p className="text-gray-600 text-sm">{product.description}</p>
+            </CardContent>
 
-          {expandedSubscriptionId === product.id ? (
-            <div className="px-6 pb-4 space-y-3">
-              <div>
-                <label className="text-sm font-medium mb-1 block">Subscription Plan</label>
-                <Select value={selectedSubscriptionOption} onValueChange={setSelectedSubscriptionOption}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select plan" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {subscriptionOptions.map((option) => (
-                      <SelectItem key={option.id} value={option.id}>
-                        {option.name} {option.discountPercentage > 0 && `(${option.discountPercentage}% off)`}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            {expandedSubscriptionId === product.id ? (
+              <div className="px-6 pb-4 space-y-3">
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Subscription Plan</label>
+                  <Select value={selectedSubscriptionOption} onValueChange={setSelectedSubscriptionOption}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select plan" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {subscriptionOptions.map((option) => (
+                        <SelectItem key={option.id} value={option.id}>
+                          {option.name} {option.discountPercentage > 0 && `(${option.discountPercentage}% off)`}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="text-sm text-gray-600 mt-1">
+                  {selectedSubscriptionOption &&
+                    subscriptionOptions.find((opt) => opt.id === selectedSubscriptionOption)?.description}
+                </div>
+                <div className="flex justify-between mt-3">
+                  <Button
+                    variant="outline"
+                    className="border-amber-700 text-amber-700 hover:bg-amber-50"
+                    onClick={() => setExpandedSubscriptionId(null)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button className="bg-amber-700 hover:bg-amber-800" onClick={() => handleAddSubscription(product)}>
+                    Add Subscription
+                  </Button>
+                </div>
               </div>
-              <div className="text-sm text-gray-600 mt-1">
-                {selectedSubscriptionOption &&
-                  subscriptionOptions.find((opt) => opt.id === selectedSubscriptionOption)?.description}
-              </div>
-              <div className="flex justify-between mt-3">
-                <Button
-                  variant="outline"
-                  className="border-amber-700 text-amber-700 hover:bg-amber-50"
-                  onClick={() => setExpandedSubscriptionId(null)}
-                >
-                  Cancel
-                </Button>
-                <Button className="bg-amber-700 hover:bg-amber-800" onClick={() => handleAddSubscription(product)}>
-                  Add Subscription
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <CardFooter className="flex justify-between">
-              <Link href={`/menu/${product.slug}`}>
-                <Button variant="outline" className="border-amber-700 text-amber-700 hover:bg-amber-50">
-                  View Details
-                </Button>
-              </Link>
-              {product.isSubscription ? (
-                <Button
-                  className="bg-amber-700 hover:bg-amber-800"
-                  onClick={() => handleSubscriptionSelect(product.id)}
-                >
-                  Select Subscription
-                </Button>
-              ) : (
-                <Button className="bg-amber-700 hover:bg-amber-800" onClick={() => handleAddToCart(product)}>
-                  Add to Cart
-                </Button>
-              )}
-            </CardFooter>
-          )}
-        </Card>
-      ))}
-    </div>
+            ) : (
+              <CardFooter className="flex justify-between">
+                <Link href={`/menu/${product.slug}`}>
+                  <Button variant="outline" className="border-amber-700 text-amber-700 hover:bg-amber-50">
+                    View Details
+                  </Button>
+                </Link>
+                {product.isSubscription ? (
+                  <Button
+                    className="bg-amber-700 hover:bg-amber-800"
+                    onClick={() => handleSubscriptionSelect(product.id)}
+                  >
+                    Select Subscription
+                  </Button>
+                ) : (
+                  <Button className="bg-amber-700 hover:bg-amber-800" onClick={() => handleAddToCart(product)}>
+                    Add to Cart
+                  </Button>
+                )}
+              </CardFooter>
+            )}
+          </Card>
+        ))}
+      </div>
+    </>
   )
 }

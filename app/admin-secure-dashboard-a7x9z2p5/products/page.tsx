@@ -9,7 +9,7 @@ import { ArrowLeft, Save, Loader2, AlertCircle, RefreshCw } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
-import { getSupabaseClient } from "@/lib/supabase-client"
+import { getSupabaseServiceClient } from "@/lib/supabase-client"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { fetchProductsFromDB } from "@/lib/data"
 import type { Product } from "@/lib/types"
@@ -82,7 +82,8 @@ export default function ProductManagementPage() {
     setMessage({ type: "", text: "" })
 
     try {
-      const supabase = getSupabaseClient()
+      // Use the service client for admin operations to ensure proper permissions
+      const supabase = getSupabaseServiceClient()
 
       // First, check if products table exists
       const { data: tableExists, error: tableCheckError } = await supabase
@@ -123,21 +124,47 @@ export default function ProductManagementPage() {
       }
 
       // Update existing products
-      for (const product of allProducts) {
-        await supabase.from("products").upsert({
-          id: product.id,
-          name: product.name,
-          price: product.price,
-          original_price: product.originalPrice || product.price,
-          description: product.description,
-          image: product.image,
-          is_subscription: product.isSubscription || false,
-          slug: product.slug,
-          updated_at: new Date().toISOString(),
+      const updatePromises = allProducts.map(async (product) => {
+        const { error } = await supabase.from("products").upsert(
+          {
+            id: product.id,
+            name: product.name,
+            price: product.price,
+            original_price: product.originalPrice || product.price,
+            description: product.description,
+            image: product.image,
+            is_subscription: product.isSubscription || false,
+            slug: product.slug,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "id" },
+        )
+
+        if (error) {
+          console.error(`Error updating product ${product.id}:`, error)
+          return { success: false, id: product.id, error }
+        }
+        return { success: true, id: product.id }
+      })
+
+      const results = await Promise.all(updatePromises)
+      const failures = results.filter((r) => !r.success)
+
+      if (failures.length > 0) {
+        console.error("Some products failed to update:", failures)
+        setMessage({
+          type: "warning",
+          text: `Updated ${results.length - failures.length} products, but ${failures.length} failed. Please try again.`,
+        })
+      } else {
+        // Clear any cached data to ensure fresh data is loaded
+        localStorage.removeItem("annapurna-products-cache")
+
+        setMessage({
+          type: "success",
+          text: "Product prices updated successfully! Please refresh the website to see changes.",
         })
       }
-
-      setMessage({ type: "success", text: "Product prices updated successfully! Refresh the website to see changes." })
     } catch (error: any) {
       console.error("Error saving product prices:", error)
       setMessage({ type: "error", text: `Failed to update product prices: ${error.message || "Unknown error"}` })
@@ -175,7 +202,11 @@ export default function ProductManagementPage() {
       {message.text && (
         <Alert
           className={`mb-6 ${
-            message.type === "success" ? "bg-green-50 border-green-200 text-green-800" : "variant-destructive"
+            message.type === "success"
+              ? "bg-green-50 border-green-200 text-green-800"
+              : message.type === "warning"
+                ? "bg-yellow-50 border-yellow-200 text-yellow-800"
+                : "variant-destructive"
           }`}
         >
           {message.type === "error" && <AlertCircle className="h-4 w-4 mr-2" />}
