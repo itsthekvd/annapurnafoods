@@ -33,6 +33,8 @@ export function generateWebsiteSchema() {
       logo: {
         "@type": "ImageObject",
         url: `${siteUrl}/logo.png`,
+        width: 512,
+        height: 512,
       },
     },
     potentialAction: [
@@ -82,14 +84,6 @@ export function generateOrganizationSchema() {
       postalCode: "641101",
       addressCountry: "IN",
     },
-    location: {
-      "@type": "Place",
-      geo: {
-        "@type": "GeoCoordinates",
-        latitude: "10.9446",
-        longitude: "76.7403",
-      },
-    },
     foundingDate: "2023",
     founders: [
       {
@@ -135,9 +129,6 @@ export function generateOrganizationSchema() {
       },
       deliveryMethod: ["http://purl.org/goodrelations/v1#DeliveryModeOwnFleet"],
     },
-    knowsLanguage: ["en", "ta", "hi"],
-    keywords:
-      "Sattvik food, tiffin service, home cooked food, food delivery, Isha Yoga Center, Coimbatore food delivery, Alandurai, Narsipuram, Irrutupalam, Madhapati",
   }
 }
 
@@ -147,7 +138,7 @@ export function generateLocalBusinessSchema() {
 
   return {
     "@context": "https://schema.org",
-    "@type": ["LocalBusiness", "FoodEstablishment", "Restaurant"],
+    "@type": "FoodEstablishment",
     "@id": `${siteUrl}/#localbusiness`,
     name: "Annapurna Foods",
     image: [
@@ -489,7 +480,7 @@ export function generateWebPageSchema(
     },
     speakable: {
       "@type": "SpeakableSpecification",
-      cssSelector: ["h1", "h2", ".description"],
+      cssSelector: ["h1", "h2"],
     },
     inLanguage: "en-IN",
     isPartOf: {
@@ -716,9 +707,11 @@ export function generatePageSchemas(pageName: string, pageData: any = {}) {
   const siteUrl = getBaseUrl()
   const schemas = []
 
+  // Add website schema to all pages
+  schemas.push(generateWebsiteSchema())
+
   // Add organization schema to all pages
   schemas.push(generateOrganizationSchema())
-  schemas.push(generateWebsiteSchema())
 
   // Add page-specific schemas
   switch (pageName) {

@@ -10,7 +10,7 @@ import Providers from "./providers"
 import ImageCacheInitializer from "@/components/image-cache-initializer"
 import Script from "next/script"
 import SchemaMarkup from "@/components/schema-markup"
-import { generateOrganizationSchema, generateLocalBusinessSchema } from "@/lib/schema-utils"
+import { generateOrganizationSchema, generateLocalBusinessSchema, generateWebsiteSchema } from "@/lib/schema-utils"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -62,7 +62,9 @@ export default function RootLayout({
     <html lang="en">
       <head>
         {/* Base Schema Markup for all pages */}
-        <SchemaMarkup schemas={baseSchemas} />
+        <SchemaMarkup
+          schemas={[generateWebsiteSchema(), generateOrganizationSchema(), generateLocalBusinessSchema()]}
+        />
 
         {/* Facebook Pixel */}
         <Script
