@@ -62,7 +62,9 @@
     "framer-motion": "latest",
     "crypto": "latest",
     "react-confetti": "latest",
-    "@supabase/supabase-js": "latest"
+    "@supabase/supabase-js": "latest",
+    "fs": "latest",
+    "globby": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",

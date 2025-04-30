@@ -56,6 +56,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        {/* Facebook Pixel */}
         <Script
           id="fb-pixel"
           strategy="afterInteractive"
@@ -83,6 +84,21 @@ export default function RootLayout({
             alt=""
           />
         </noscript>
+
+        {/* Google Analytics */}
+        <Script src="https://www.googletagmanager.com/gtag/js?id=G-PZHM42XL6P" strategy="afterInteractive" />
+        <Script
+          id="google-analytics"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+              gtag('config', 'G-PZHM42XL6P');
+            `,
+          }}
+        />
       </head>
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>

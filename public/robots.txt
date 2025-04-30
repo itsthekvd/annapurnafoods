@@ -1,7 +1,9 @@
+# *
 User-agent: *
 Allow: /
-Disallow: /admin/
-Disallow: /admin-dashboard-secure/
-Disallow: /admin-secure-dashboard-a7x9z2p5/
-Disallow: /checkout/phonepe-callback
-Disallow: /checkout/success
+
+# Host
+Host: https://annapurnafoods.in
+
+# Sitemaps
+Sitemap: https://annapurnafoods.in/sitemap.xml
