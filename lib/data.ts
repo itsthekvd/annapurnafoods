@@ -1,6 +1,8 @@
 import type { Product, Testimonial, Coupon } from "./types"
 import { getImageUrlWithFallback } from "./image-utils"
+import { getSupabaseClient } from "./supabase-client"
 
+// Default hardcoded products (used as fallback)
 export const products: Product[] = [
   {
     id: "brunch",
@@ -70,6 +72,50 @@ export const specialProducts: Product[] = [
     isSubscription: false,
   },
 ]
+
+// Function to fetch products from the database
+export async function fetchProductsFromDB(): Promise<Product[]> {
+  try {
+    const supabase = getSupabaseClient()
+
+    // Try to fetch products from the database
+    const { data, error } = await supabase.from("products").select("*")
+
+    // If there's an error or no data, return the hardcoded products
+    if (error || !data || data.length === 0) {
+      console.warn("Using hardcoded product data:", error ? error.message : "No products found in database")
+      return [...products, ...specialProducts]
+    }
+
+    // Transform the data to match the Product type
+    return data.map((item) => ({
+      id: item.id,
+      name: item.name,
+      slug: item.slug || item.id.toLowerCase().replace(/\s+/g, "-"),
+      description: item.description || "",
+      longDescription: item.long_description || item.description || "",
+      price: Number.parseFloat(item.price) || 0,
+      originalPrice: item.original_price ? Number.parseFloat(item.original_price) : undefined,
+      image: item.image || getImageUrlWithFallback(item.id),
+      isSubscription: item.is_subscription || false,
+    }))
+  } catch (error) {
+    console.error("Error in fetchProductsFromDB:", error)
+    return [...products, ...specialProducts] // Fallback to hardcoded products
+  }
+}
+
+// Function to get a specific product by slug
+export async function getProductBySlug(slug: string): Promise<Product | undefined> {
+  try {
+    const allProducts = await fetchProductsFromDB()
+    return allProducts.find((p) => p.slug === slug)
+  } catch (error) {
+    console.error("Error in getProductBySlug:", error)
+    // Fallback to hardcoded products
+    return [...products, ...specialProducts].find((p) => p.slug === slug)
+  }
+}
 
 export const testimonials: Testimonial[] = [
   {
