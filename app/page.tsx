@@ -102,22 +102,26 @@ export default function Home() {
   })
 
   return (
-    <Providers>
+    <>
+      {/* Add schema markup directly in the page */}
       <SchemaMarkup schemas={homeSchemas} />
-      <main className="flex min-h-screen flex-col">
-        <h1 className="sr-only">Annapurna Foods - Home Cooked Food Delivery near Isha Yoga Center Coimbatore</h1>
-        <Hero />
-        <div id="featured-products">
-          <FeaturedProducts />
-        </div>
-        <ReviewsShowcase />
-        <Story />
-        <ImageShowcase />
-        <SpecialsSection />
-        <JuiceSection />
-        <CountdownTimer />
-        <LoyaltyRewards />
-      </main>
-    </Providers>
+
+      <Providers>
+        <main className="flex min-h-screen flex-col">
+          <h1 className="sr-only">Annapurna Foods - Home Cooked Food Delivery near Isha Yoga Center Coimbatore</h1>
+          <Hero />
+          <div id="featured-products">
+            <FeaturedProducts />
+          </div>
+          <ReviewsShowcase />
+          <Story />
+          <ImageShowcase />
+          <SpecialsSection />
+          <JuiceSection />
+          <CountdownTimer />
+          <LoyaltyRewards />
+        </main>
+      </Providers>
+    </>
   )
 }

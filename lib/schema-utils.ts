@@ -1,5 +1,4 @@
 import type { Product } from "./types"
-import { headers } from "next/headers"
 
 /**
  * Schema.org utility functions for generating structured data
@@ -8,16 +7,13 @@ import { headers } from "next/headers"
 
 // Function to get the base URL dynamically
 export function getBaseUrl() {
-  try {
-    // In server components/utils
-    const headersList = headers()
-    const host = headersList.get("host") || "annapurna.food"
-    const protocol = process.env.NODE_ENV === "production" ? "https" : "http"
-    return `${protocol}://${host}`
-  } catch (error) {
-    // Fallback for client components where headers() might not be available
-    return process.env.NEXT_PUBLIC_SITE_URL || "https://annapurna.food"
+  // Use the environment variable if available
+  if (process.env.NEXT_PUBLIC_SITE_URL) {
+    return process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, "") // Remove trailing slash if present
   }
+
+  // Fallback to default domain
+  return "https://annapurna.food"
 }
 
 // Organization schema for the business entity

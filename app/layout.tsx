@@ -61,6 +61,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        {/* Base Schema Markup for all pages */}
+        <SchemaMarkup schemas={baseSchemas} />
+
         {/* Facebook Pixel */}
         <Script
           id="fb-pixel"
@@ -104,9 +107,6 @@ export default function RootLayout({
             `,
           }}
         />
-
-        {/* Base Schema Markup for all pages */}
-        <SchemaMarkup schemas={baseSchemas} />
       </head>
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
