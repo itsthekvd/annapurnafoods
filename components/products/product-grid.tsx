@@ -17,7 +17,6 @@ export default function ProductGrid() {
   const [isLoading, setIsLoading] = useState(true)
   const [expandedSubscriptionId, setExpandedSubscriptionId] = useState<string | null>(null)
   const [selectedSubscriptionOption, setSelectedSubscriptionOption] = useState<string>("weekly")
-  const [selectedSubscriptionDays, setSelectedSubscriptionDays] = useState<number>(30)
   const { addItem } = useCart()
 
   useEffect(() => {
@@ -52,7 +51,6 @@ export default function ProductGrid() {
       } else {
         setExpandedSubscriptionId(productId)
         setSelectedSubscriptionOption("weekly")
-        setSelectedSubscriptionDays(30)
       }
     },
     [expandedSubscriptionId],
@@ -68,11 +66,12 @@ export default function ProductGrid() {
         image: getImageUrlWithFallback(product.id),
       }
 
-      addItem(productWithImage, 1, undefined, selectedSubscriptionOption, selectedSubscriptionDays)
+      // Use the option's durationInDays instead of selectedSubscriptionDays
+      addItem(productWithImage, 1, undefined, selectedSubscriptionOption, option.durationInDays)
 
       setExpandedSubscriptionId(null)
     },
-    [addItem, selectedSubscriptionOption, selectedSubscriptionDays],
+    [addItem, selectedSubscriptionOption],
   )
 
   if (isLoading) {
@@ -121,40 +120,26 @@ export default function ProductGrid() {
 
           {expandedSubscriptionId === product.id ? (
             <div className="px-6 pb-4 space-y-3">
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-sm font-medium mb-1 block">Frequency</label>
-                  <Select value={selectedSubscriptionOption} onValueChange={setSelectedSubscriptionOption}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select frequency" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {subscriptionOptions.map((option) => (
-                        <SelectItem key={option.id} value={option.id}>
-                          {option.name} ({option.discountPercentage}% off)
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <label className="text-sm font-medium mb-1 block">Days</label>
-                  <Select
-                    value={selectedSubscriptionDays.toString()}
-                    onValueChange={(value) => setSelectedSubscriptionDays(Number.parseInt(value))}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select days" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="30">30 days</SelectItem>
-                      <SelectItem value="60">60 days</SelectItem>
-                      <SelectItem value="90">90 days</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div>
+                <label className="text-sm font-medium mb-1 block">Subscription Plan</label>
+                <Select value={selectedSubscriptionOption} onValueChange={setSelectedSubscriptionOption}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select plan" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {subscriptionOptions.map((option) => (
+                      <SelectItem key={option.id} value={option.id}>
+                        {option.name} {option.discountPercentage > 0 && `(${option.discountPercentage}% off)`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              <div className="flex justify-between">
+              <div className="text-sm text-gray-600 mt-1">
+                {selectedSubscriptionOption &&
+                  subscriptionOptions.find((opt) => opt.id === selectedSubscriptionOption)?.description}
+              </div>
+              <div className="flex justify-between mt-3">
                 <Button
                   variant="outline"
                   className="border-amber-700 text-amber-700 hover:bg-amber-50"
