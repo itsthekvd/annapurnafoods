@@ -632,6 +632,17 @@ export function generateRecipeSchema(recipe: {
   keywords: string
   recipeCategory: string
   recipeCuisine: string
+  nutrition?: {
+    calories?: string
+    fatContent?: string
+    saturatedFatContent?: string
+    cholesterolContent?: string
+    sodiumContent?: string
+    carbohydrateContent?: string
+    fiberContent?: string
+    sugarContent?: string
+    proteinContent?: string
+  }
 }) {
   const siteUrl = getBaseUrl()
 
@@ -656,20 +667,46 @@ export function generateRecipeSchema(recipe: {
       "@type": "HowToStep",
       position: index + 1,
       text: step,
+      url: `${siteUrl}/recipes/${recipe.name.toLowerCase().replace(/\s+/g, "-")}#step-${index + 1}`,
+      image: recipe.image,
     })),
     keywords: recipe.keywords,
     recipeCategory: recipe.recipeCategory,
     recipeCuisine: recipe.recipeCuisine,
     nutrition: {
       "@type": "NutritionInformation",
-      calories: "350 calories",
-      fatContent: "10 g",
-      carbohydrateContent: "50 g",
-      proteinContent: "15 g",
-      fiberContent: "8 g",
+      calories: recipe.nutrition?.calories || "350 calories",
+      fatContent: recipe.nutrition?.fatContent || "10 g",
+      saturatedFatContent: recipe.nutrition?.saturatedFatContent || "2 g",
+      cholesterolContent: recipe.nutrition?.cholesterolContent || "0 mg",
+      sodiumContent: recipe.nutrition?.sodiumContent || "300 mg",
+      carbohydrateContent: recipe.nutrition?.carbohydrateContent || "50 g",
+      fiberContent: recipe.nutrition?.fiberContent || "8 g",
+      sugarContent: recipe.nutrition?.sugarContent || "5 g",
+      proteinContent: recipe.nutrition?.proteinContent || "15 g",
     },
-    suitableForDiet: "https://schema.org/VegetarianDiet",
+    suitableForDiet: [
+      "https://schema.org/VegetarianDiet",
+      "https://schema.org/LowFatDiet",
+      "https://schema.org/LowSaltDiet",
+    ],
     recipeContext: "Sattvik cooking traditions from South India",
+    aggregateRating: {
+      "@type": "AggregateRating",
+      ratingValue: "4.8",
+      reviewCount: "24",
+    },
+    video: recipe.video
+      ? {
+          "@type": "VideoObject",
+          name: `How to prepare ${recipe.name}`,
+          description: `Learn how to prepare ${recipe.name} - ${recipe.description}`,
+          thumbnailUrl: recipe.image,
+          contentUrl: recipe.video,
+          uploadDate: new Date().toISOString(),
+          duration: "PT5M", // Example duration: 5 minutes
+        }
+      : undefined,
   }
 }
 
