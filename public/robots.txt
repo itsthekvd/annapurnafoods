@@ -1,11 +1,12 @@
-# robots.txt for Annapurna Foods
+# Allow all crawlers
 User-agent: *
 Allow: /
 
-# Disallow admin areas
-Disallow: /admin/
-Disallow: /admin-dashboard-secure/
-Disallow: /admin-secure-dashboard-a7x9z2p5/
-
 # Sitemap location
 Sitemap: https://annapurna.food/sitemap.xml
+
+# Disallow admin areas
+User-agent: *
+Disallow: /admin/
+Disallow: /admin-secure-dashboard-a7x9z2p5/
+Disallow: /admin-dashboard-secure/

@@ -16,6 +16,39 @@ export function getBaseUrl() {
   return "https://annapurna.food"
 }
 
+// Website schema for overall site information
+export function generateWebsiteSchema() {
+  const siteUrl = getBaseUrl()
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "@id": `${siteUrl}/#website`,
+    url: siteUrl,
+    name: "Annapurna Foods",
+    description: "Sattvik home-cooked food delivery service near Isha Yoga Center in Coimbatore",
+    publisher: {
+      "@type": "Organization",
+      name: "Annapurna Foods",
+      logo: {
+        "@type": "ImageObject",
+        url: `${siteUrl}/logo.png`,
+      },
+    },
+    potentialAction: [
+      {
+        "@type": "SearchAction",
+        target: {
+          "@type": "EntryPoint",
+          urlTemplate: `${siteUrl}/menu?q={search_term_string}`,
+        },
+        "query-input": "required name=search_term_string",
+      },
+    ],
+    inLanguage: "en-IN",
+  }
+}
+
 // Organization schema for the business entity
 export function generateOrganizationSchema() {
   const siteUrl = getBaseUrl()
@@ -23,10 +56,20 @@ export function generateOrganizationSchema() {
   return {
     "@context": "https://schema.org",
     "@type": "Organization",
+    "@id": `${siteUrl}/#organization`,
     name: "Annapurna Foods",
     alternateName: "Annapurna Tiffin Service",
     url: siteUrl,
-    logo: `${siteUrl}/logo.png`,
+    logo: {
+      "@type": "ImageObject",
+      url: `${siteUrl}/logo.png`,
+      width: 512,
+      height: 512,
+    },
+    image: [
+      "https://ucarecdn.com/f2132019-968c-4f1e-9bae-46ec7daa3d44/Brunchscaled.jpg",
+      "https://ucarecdn.com/f2132019-968c-4f1e-9bae-46ec7daa3d44/Dinnercropped.jpg",
+    ],
     description: "Sattvik home-cooked food delivery service near Isha Yoga Center in Coimbatore.",
     email: "contact@annapurna.food",
     telephone: "+918300615054",
@@ -39,25 +82,14 @@ export function generateOrganizationSchema() {
       postalCode: "641101",
       addressCountry: "IN",
     },
-    geo: {
-      "@type": "GeoCoordinates",
-      latitude: "10.9446", // Replace with actual coordinates
-      longitude: "76.7403", // Replace with actual coordinates
+    location: {
+      "@type": "Place",
+      geo: {
+        "@type": "GeoCoordinates",
+        latitude: "10.9446",
+        longitude: "76.7403",
+      },
     },
-    openingHoursSpecification: [
-      {
-        "@type": "OpeningHoursSpecification",
-        dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
-        opens: "19:00",
-        closes: "21:30",
-      },
-      {
-        "@type": "OpeningHoursSpecification",
-        dayOfWeek: ["Saturday", "Sunday"],
-        opens: "07:00",
-        closes: "09:30",
-      },
-    ],
     foundingDate: "2023",
     founders: [
       {
@@ -65,15 +97,34 @@ export function generateOrganizationSchema() {
         name: "Isha Volunteer",
       },
     ],
-    areaServed: {
-      "@type": "GeoCircle",
-      geoMidpoint: {
-        "@type": "GeoCoordinates",
-        latitude: "10.9446", // Replace with actual coordinates
-        longitude: "76.7403", // Replace with actual coordinates
+    areaServed: [
+      {
+        "@type": "City",
+        name: "Coimbatore",
+        containsPlace: [
+          {
+            "@type": "Place",
+            name: "Alandurai",
+          },
+          {
+            "@type": "Place",
+            name: "Narsipuram",
+          },
+          {
+            "@type": "Place",
+            name: "Irrutupalam",
+          },
+          {
+            "@type": "Place",
+            name: "Madhapati",
+          },
+          {
+            "@type": "Place",
+            name: "Isha Yoga Center",
+          },
+        ],
       },
-      geoRadius: "15000", // 15km radius in meters
-    },
+    ],
     potentialAction: {
       "@type": "OrderAction",
       target: {
@@ -84,6 +135,9 @@ export function generateOrganizationSchema() {
       },
       deliveryMethod: ["http://purl.org/goodrelations/v1#DeliveryModeOwnFleet"],
     },
+    knowsLanguage: ["en", "ta", "hi"],
+    keywords:
+      "Sattvik food, tiffin service, home cooked food, food delivery, Isha Yoga Center, Coimbatore food delivery, Alandurai, Narsipuram, Irrutupalam, Madhapati",
   }
 }
 
@@ -114,8 +168,8 @@ export function generateLocalBusinessSchema() {
     },
     geo: {
       "@type": "GeoCoordinates",
-      latitude: "10.9446", // Replace with actual coordinates
-      longitude: "76.7403", // Replace with actual coordinates
+      latitude: "10.9446",
+      longitude: "76.7403",
     },
     openingHoursSpecification: [
       {
@@ -135,27 +189,18 @@ export function generateLocalBusinessSchema() {
     acceptsReservations: "false",
     paymentAccepted: "Cash, Credit Card, Debit Card, UPI",
     currenciesAccepted: "INR",
-    deliveryArea: {
-      "@type": "GeoCircle",
-      geoMidpoint: {
-        "@type": "GeoCoordinates",
-        latitude: "10.9446", // Replace with actual coordinates
-        longitude: "76.7403", // Replace with actual coordinates
-      },
-      geoRadius: "15000", // 15km radius in meters
-    },
+    areaServed: ["Coimbatore", "Isha Yoga Center", "Alandurai", "Thondamuthur", "Semmedu", "Velliangiri"],
     keywords:
       "Sattvik food, tiffin service, home cooked food, food delivery, Isha Yoga Center, Coimbatore food delivery",
     slogan: "Sattvik. Fresh. Fulfilling.",
     description:
       "Fresh, home-cooked Sattvik meals delivered daily near Isha Yoga Center. Healthy food tiffin services in Coimbatore with subscription options.",
-    areaServed: ["Coimbatore", "Isha Yoga Center", "Alandurai", "Thondamuthur", "Semmedu", "Velliangiri"],
     serviceArea: {
       "@type": "GeoCircle",
       geoMidpoint: {
         "@type": "GeoCoordinates",
-        latitude: "10.9446", // Replace with actual coordinates
-        longitude: "76.7403", // Replace with actual coordinates
+        latitude: "10.9446",
+        longitude: "76.7403",
       },
       geoRadius: "15000", // 15km radius in meters
     },
@@ -169,21 +214,41 @@ export function generateFoodServiceSchema() {
   return {
     "@context": "https://schema.org",
     "@type": "FoodService",
+    "@id": `${siteUrl}/#foodservice`,
     name: "Annapurna Foods Delivery Service",
     provider: {
       "@type": "Organization",
       name: "Annapurna Foods",
     },
     serviceType: "Food Delivery",
-    areaServed: {
-      "@type": "GeoCircle",
-      geoMidpoint: {
-        "@type": "GeoCoordinates",
-        latitude: "10.9446", // Replace with actual coordinates
-        longitude: "76.7403", // Replace with actual coordinates
+    areaServed: [
+      {
+        "@type": "City",
+        name: "Coimbatore",
+        containsPlace: [
+          {
+            "@type": "Place",
+            name: "Alandurai",
+          },
+          {
+            "@type": "Place",
+            name: "Narsipuram",
+          },
+          {
+            "@type": "Place",
+            name: "Irrutupalam",
+          },
+          {
+            "@type": "Place",
+            name: "Madhapati",
+          },
+          {
+            "@type": "Place",
+            name: "Isha Yoga Center",
+          },
+        ],
       },
-      geoRadius: "15000", // 15km radius in meters
-    },
+    ],
     availableChannel: {
       "@type": "ServiceChannel",
       serviceUrl: siteUrl,
@@ -195,6 +260,13 @@ export function generateFoodServiceSchema() {
       "@type": "FoodService",
       name: "Home-cooked Sattvik meal delivery",
     },
+    offers: {
+      "@type": "Offer",
+      itemOffered: {
+        "@type": "Service",
+        name: "Sattvik Food Delivery",
+      },
+    },
   }
 }
 
@@ -205,6 +277,7 @@ export function generateProductSchema(product: Product) {
   return {
     "@context": "https://schema.org",
     "@type": "Product",
+    "@id": `${siteUrl}/menu/${product.slug}#product`,
     name: product.name,
     image: product.image,
     description: product.description,
@@ -232,6 +305,34 @@ export function generateProductSchema(product: Product) {
         maxValue: 60,
         unitCode: "MIN",
       },
+      areaServed: [
+        {
+          "@type": "City",
+          name: "Coimbatore",
+          containsPlace: [
+            {
+              "@type": "Place",
+              name: "Alandurai",
+            },
+            {
+              "@type": "Place",
+              name: "Narsipuram",
+            },
+            {
+              "@type": "Place",
+              name: "Irrutupalam",
+            },
+            {
+              "@type": "Place",
+              name: "Madhapati",
+            },
+            {
+              "@type": "Place",
+              name: "Isha Yoga Center",
+            },
+          ],
+        },
+      ],
     },
     category: product.category || "Food",
     isAccessoryOrSparePartFor: {
@@ -249,18 +350,44 @@ export function generateProductSchema(product: Product) {
         name: "MealType",
         value: product.category,
       },
+      {
+        "@type": "PropertyValue",
+        name: "Ingredients",
+        value: "Organic vegetables, Fresh spices, Natural ingredients",
+      },
+      {
+        "@type": "PropertyValue",
+        name: "ServingSize",
+        value: "1 person",
+      },
     ],
+    nutrition: {
+      "@type": "NutritionInformation",
+      calories: "350-450 calories",
+      fatContent: "10-15g",
+      carbohydrateContent: "50-60g",
+      proteinContent: "15-20g",
+      fiberContent: "8-10g",
+    },
+    suitableForDiet: [
+      "http://schema.org/VegetarianDiet",
+      "http://schema.org/LowFatDiet",
+      "http://schema.org/LowSaltDiet",
+    ],
+    keywords: `${product.name}, Sattvik food, healthy meal, ${product.category}, vegetarian food, Coimbatore food delivery, Isha Yoga Center`,
   }
 }
 
 // Menu schema for the food menu
 export function generateMenuSchema(products: Product[]) {
+  const siteUrl = getBaseUrl()
   const menuSections = Array.from(new Set(products.map((p) => p.category))).map((category) => {
     const categoryProducts = products.filter((p) => p.category === category)
 
     return {
       "@type": "MenuSection",
       name: category,
+      description: `Our ${category} options - fresh, home-cooked Sattvik meals`,
       hasMenuItem: categoryProducts.map((product) => ({
         "@type": "MenuItem",
         name: product.name,
@@ -269,6 +396,8 @@ export function generateMenuSchema(products: Product[]) {
           "@type": "Offer",
           price: product.price,
           priceCurrency: "INR",
+          availability: product.inStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+          url: `${siteUrl}/menu/${product.slug}`,
         },
         suitableForDiet: "https://schema.org/VegetarianDiet",
         menuAddOn:
@@ -276,6 +405,14 @@ export function generateMenuSchema(products: Product[]) {
             "@type": "MenuAddOn",
             name: tag,
           })) || [],
+        nutrition: {
+          "@type": "NutritionInformation",
+          calories: "350-450 calories",
+          fatContent: "10-15g",
+          carbohydrateContent: "50-60g",
+          proteinContent: "15-20g",
+          fiberContent: "8-10g",
+        },
       })),
     }
   })
@@ -283,9 +420,16 @@ export function generateMenuSchema(products: Product[]) {
   return {
     "@context": "https://schema.org",
     "@type": "Menu",
+    "@id": `${siteUrl}/menu#menu`,
     name: "Annapurna Foods Menu",
     description: "Our menu of fresh, home-cooked Sattvik meals delivered daily",
     hasMenuSection: menuSections,
+    inLanguage: "en-IN",
+    offers: {
+      "@type": "Offer",
+      availabilityStarts: "2023-01-01T00:00:00+05:30",
+      availabilityEnds: "2025-12-31T23:59:59+05:30",
+    },
   }
 }
 
@@ -311,10 +455,14 @@ export function generateWebPageSchema(
   url: string,
   imageUrl?: string,
   lastReviewed?: string,
+  keywords?: string[],
 ) {
+  const siteUrl = getBaseUrl()
+
   return {
     "@context": "https://schema.org",
     "@type": pageType,
+    "@id": `${url}#webpage`,
     mainEntityOfPage: {
       "@type": "WebPage",
       "@id": url,
@@ -322,7 +470,7 @@ export function generateWebPageSchema(
     headline: title,
     description: description,
     image: imageUrl || "https://ucarecdn.com/f2132019-968c-4f1e-9bae-46ec7daa3d44/Brunchscaled.jpg",
-    datePublished: "2023-01-01T00:00:00+05:30", // Replace with actual date
+    datePublished: "2023-01-01T00:00:00+05:30",
     dateModified: new Date().toISOString(),
     lastReviewed: lastReviewed || new Date().toISOString(),
     author: {
@@ -334,14 +482,27 @@ export function generateWebPageSchema(
       name: "Annapurna Foods",
       logo: {
         "@type": "ImageObject",
-        url: `${getBaseUrl()}/logo.png`,
+        url: `${siteUrl}/logo.png`,
+        width: 512,
+        height: 512,
       },
     },
     speakable: {
       "@type": "SpeakableSpecification",
-      cssSelector: ["h1", "h2", ".product-description"],
+      cssSelector: ["h1", "h2", ".description"],
     },
     inLanguage: "en-IN",
+    isPartOf: {
+      "@type": "WebSite",
+      "@id": `${siteUrl}/#website`,
+    },
+    potentialAction: {
+      "@type": "ReadAction",
+      target: [url],
+    },
+    keywords: keywords
+      ? keywords.join(", ")
+      : "Sattvik food, tiffin service, home cooked food, food delivery, Isha Yoga Center, Coimbatore",
   }
 }
 
@@ -385,6 +546,7 @@ export function generateReviewSchema(reviews: { author: string; reviewBody: stri
           "@type": "FoodEstablishment",
           name: "Annapurna Foods",
         },
+        datePublished: new Date().toISOString().split("T")[0],
       },
     })),
   }
@@ -425,6 +587,8 @@ export function generateEventSchema(event: {
     description: event.description,
     startDate: event.startDate,
     endDate: event.endDate,
+    eventStatus: "https://schema.org/EventScheduled",
+    eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
     location: {
       "@type": "Place",
       name: event.location,
@@ -436,12 +600,21 @@ export function generateEventSchema(event: {
         postalCode: "641101",
         addressCountry: "IN",
       },
+      geo: {
+        "@type": "GeoCoordinates",
+        latitude: "10.9446",
+        longitude: "76.7403",
+      },
     },
     image: event.image || "https://ucarecdn.com/f2132019-968c-4f1e-9bae-46ec7daa3d44/Brunchscaled.jpg",
     organizer: {
       "@type": "Organization",
       name: "Annapurna Foods",
       url: siteUrl,
+    },
+    performer: {
+      "@type": "Organization",
+      name: "Annapurna Foods",
     },
     offers: {
       "@type": "Offer",
@@ -469,6 +642,8 @@ export function generateRecipeSchema(recipe: {
   recipeCategory: string
   recipeCuisine: string
 }) {
+  const siteUrl = getBaseUrl()
+
   return {
     "@context": "https://schema.org",
     "@type": "Recipe",
@@ -478,6 +653,7 @@ export function generateRecipeSchema(recipe: {
     author: {
       "@type": "Organization",
       name: "Annapurna Foods",
+      url: siteUrl,
     },
     datePublished: new Date().toISOString(),
     prepTime: recipe.prepTime,
@@ -502,6 +678,7 @@ export function generateRecipeSchema(recipe: {
       fiberContent: "8 g",
     },
     suitableForDiet: "https://schema.org/VegetarianDiet",
+    recipeContext: "Sattvik cooking traditions from South India",
   }
 }
 
@@ -511,6 +688,8 @@ export function generateHowToSchema(howTo: {
   description: string
   steps: { name: string; text: string; image?: string }[]
 }) {
+  const siteUrl = getBaseUrl()
+
   return {
     "@context": "https://schema.org",
     "@type": "HowTo",
@@ -521,7 +700,13 @@ export function generateHowToSchema(howTo: {
       position: index + 1,
       name: step.name,
       text: step.text,
-      image: step.image,
+      image: step.image
+        ? {
+            "@type": "ImageObject",
+            url: step.image,
+          }
+        : undefined,
+      url: `${siteUrl}/how-to#step-${index + 1}`,
     })),
   }
 }
@@ -533,6 +718,7 @@ export function generatePageSchemas(pageName: string, pageData: any = {}) {
 
   // Add organization schema to all pages
   schemas.push(generateOrganizationSchema())
+  schemas.push(generateWebsiteSchema())
 
   // Add page-specific schemas
   switch (pageName) {
@@ -542,8 +728,21 @@ export function generatePageSchemas(pageName: string, pageData: any = {}) {
         generateWebPageSchema(
           "WebPage",
           "Annapurna Foods - Sattvik Home Cooked Food Delivery in Coimbatore",
-          "Order healthy, home-cooked Sattvik meals delivered fresh to your doorstep in Coimbatore. Daily brunch and dinner options with special health juices. Serving areas near Isha Yoga Center.",
+          "Order healthy, home-cooked Sattvik meals delivered fresh to your doorstep in Coimbatore. Daily brunch and dinner options with special health juices. Serving areas near Isha Yoga Center, Alandurai, Narsipuram, Irrutupalam, and Madhapati.",
           siteUrl,
+          undefined,
+          undefined,
+          [
+            "Sattvik food delivery",
+            "Healthy meal delivery Coimbatore",
+            "Tiffin service Isha Yoga Center",
+            "Home cooked food delivery Alandurai",
+            "Vegetarian food delivery Coimbatore",
+            "Meal subscription Isha",
+            "Healthy tiffin service Narsipuram",
+            "Daily food delivery Irrutupalam",
+            "Sattvik meals Madhapati",
+          ],
         ),
       )
       schemas.push(generateFoodServiceSchema())
@@ -576,8 +775,19 @@ export function generatePageSchemas(pageName: string, pageData: any = {}) {
         generateWebPageSchema(
           "CollectionPage",
           "Menu - Healthy Meal Delivery Services in Coimbatore | Annapurna Foods",
-          "Browse our menu of fresh, home-cooked Sattvik meals delivered daily near Isha Yoga Center. Healthy food tiffin services in Coimbatore with subscription options.",
+          "Browse our menu of fresh, home-cooked Sattvik meals delivered daily near Isha Yoga Center. Healthy food tiffin services in Coimbatore, Alandurai, Narsipuram, Irrutupalam, and Madhapati with subscription options.",
           `${siteUrl}/menu`,
+          undefined,
+          undefined,
+          [
+            "Sattvik food menu",
+            "Vegetarian meal options Coimbatore",
+            "Healthy food menu Isha Yoga Center",
+            "Tiffin service menu Alandurai",
+            "Daily meal options Narsipuram",
+            "Food delivery menu Irrutupalam",
+            "Meal subscription plans Madhapati",
+          ],
         ),
       )
 
@@ -609,6 +819,18 @@ export function generatePageSchemas(pageName: string, pageData: any = {}) {
             pageData.product.description,
             `${siteUrl}/menu/${pageData.product.slug}`,
             pageData.product.image,
+            undefined,
+            [
+              `${pageData.product.name}`,
+              `${pageData.product.name} delivery`,
+              `Sattvik ${pageData.product.name}`,
+              `Healthy ${pageData.product.name} Coimbatore`,
+              `${pageData.product.name} Isha Yoga Center`,
+              `${pageData.product.name} Alandurai`,
+              `${pageData.product.name} Narsipuram`,
+              `${pageData.product.name} Irrutupalam`,
+              `${pageData.product.name} Madhapati`,
+            ],
           ),
         )
 
@@ -627,8 +849,20 @@ export function generatePageSchemas(pageName: string, pageData: any = {}) {
         generateWebPageSchema(
           "WebPage",
           "Shopping Cart - Annapurna Foods | Home Meal Delivery in Coimbatore",
-          "Review your order of fresh, home-cooked Sattvik meals before checkout. Healthy food delivery near Isha Yoga Center Coimbatore.",
+          "Review your order of fresh, home-cooked Sattvik meals before checkout. Healthy food delivery near Isha Yoga Center, Alandurai, Narsipuram, Irrutupalam, and Madhapati in Coimbatore.",
           `${siteUrl}/cart`,
+          undefined,
+          undefined,
+          [
+            "Order Sattvik food",
+            "Checkout healthy meals",
+            "Food delivery cart Coimbatore",
+            "Tiffin service order Isha",
+            "Meal delivery checkout Alandurai",
+            "Food order Narsipuram",
+            "Meal cart Irrutupalam",
+            "Food delivery Madhapati",
+          ],
         ),
       )
 
@@ -645,8 +879,20 @@ export function generatePageSchemas(pageName: string, pageData: any = {}) {
         generateWebPageSchema(
           "CheckoutPage",
           "Checkout - Annapurna Foods | Home Meal Delivery in Coimbatore",
-          "Complete your order for fresh, home-cooked Sattvik meals delivered to your doorstep near Isha Yoga Center Coimbatore.",
+          "Complete your order for fresh, home-cooked Sattvik meals delivered to your doorstep near Isha Yoga Center, Alandurai, Narsipuram, Irrutupalam, and Madhapati in Coimbatore.",
           `${siteUrl}/checkout`,
+          undefined,
+          undefined,
+          [
+            "Complete food order",
+            "Checkout Sattvik meals",
+            "Food delivery payment Coimbatore",
+            "Tiffin service checkout Isha",
+            "Meal delivery payment Alandurai",
+            "Food order completion Narsipuram",
+            "Meal checkout Irrutupalam",
+            "Food delivery payment Madhapati",
+          ],
         ),
       )
 
@@ -686,8 +932,20 @@ export function generatePageSchemas(pageName: string, pageData: any = {}) {
         generateWebPageSchema(
           "ContactPage",
           "Contact Us - Annapurna Foods | Home Food Delivery in Coimbatore",
-          "Get in touch with Annapurna Foods for home-cooked Sattvik meal delivery near Isha Yoga Center Coimbatore. Questions, feedback, or special requests.",
+          "Get in touch with Annapurna Foods for home-cooked Sattvik meal delivery near Isha Yoga Center, Alandurai, Narsipuram, Irrutupalam, and Madhapati in Coimbatore. Questions, feedback, or special requests.",
           `${siteUrl}/contact`,
+          undefined,
+          undefined,
+          [
+            "Contact food delivery",
+            "Reach Sattvik meal service",
+            "Food delivery contact Coimbatore",
+            "Tiffin service contact Isha",
+            "Meal delivery inquiry Alandurai",
+            "Food service contact Narsipuram",
+            "Meal delivery support Irrutupalam",
+            "Food delivery help Madhapati",
+          ],
         ),
       )
 
@@ -706,6 +964,18 @@ export function generatePageSchemas(pageName: string, pageData: any = {}) {
           `${pageData.title} - Annapurna Foods`,
           pageData.description,
           `${siteUrl}/policies/${pageData.slug}`,
+          undefined,
+          undefined,
+          [
+            `${pageData.title.toLowerCase()} food delivery`,
+            `${pageData.title.toLowerCase()} Sattvik meals`,
+            `${pageData.title.toLowerCase()} Coimbatore`,
+            `${pageData.title.toLowerCase()} Isha Yoga Center`,
+            `${pageData.title.toLowerCase()} Alandurai`,
+            `${pageData.title.toLowerCase()} Narsipuram`,
+            `${pageData.title.toLowerCase()} Irrutupalam`,
+            `${pageData.title.toLowerCase()} Madhapati`,
+          ],
         ),
       )
 
@@ -722,11 +992,52 @@ export function generatePageSchemas(pageName: string, pageData: any = {}) {
         generateWebPageSchema(
           "WebPage",
           "Annapurna Foods - Sattvik Home Cooked Food Delivery in Coimbatore",
-          "Order healthy, home-cooked Sattvik meals delivered fresh to your doorstep in Coimbatore. Daily brunch and dinner options with special health juices. Serving areas near Isha Yoga Center.",
+          "Order healthy, home-cooked Sattvik meals delivered fresh to your doorstep in Coimbatore. Daily brunch and dinner options with special health juices. Serving areas near Isha Yoga Center, Alandurai, Narsipuram, Irrutupalam, and Madhapati.",
           siteUrl,
         ),
       )
   }
 
   return schemas
+}
+
+// Local business service schema for specific services
+export function generateServiceSchema(service: {
+  name: string
+  description: string
+  url: string
+  areaServed: string[]
+}) {
+  const siteUrl = getBaseUrl()
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "Service",
+    name: service.name,
+    description: service.description,
+    provider: {
+      "@type": "LocalBusiness",
+      name: "Annapurna Foods",
+      address: {
+        "@type": "PostalAddress",
+        streetAddress: "42/1, Devi Nagar, Alandurai",
+        addressLocality: "Coimbatore",
+        addressRegion: "Tamil Nadu",
+        postalCode: "641101",
+        addressCountry: "IN",
+      },
+    },
+    areaServed: service.areaServed.map((area) => ({
+      "@type": "City",
+      name: area,
+    })),
+    url: `${siteUrl}${service.url}`,
+    serviceType: "Food Delivery",
+    termsOfService: `${siteUrl}/policies/terms`,
+    offers: {
+      "@type": "Offer",
+      price: "0",
+      priceCurrency: "INR",
+    },
+  }
 }
