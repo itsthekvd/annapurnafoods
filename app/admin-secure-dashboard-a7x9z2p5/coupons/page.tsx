@@ -98,11 +98,32 @@ export default function CouponManagementPage() {
         );
       `
 
-      // Execute the SQL directly
-      await supabase.rpc("exec_sql", { sql: createTableSQL }).catch((err) => {
-        console.error("Error creating table via RPC:", err)
-        // Continue even if this fails - we'll try the insert anyway
-      })
+      // Try to execute SQL directly via API endpoint
+      try {
+        const response = await fetch("/api/admin/exec-sql", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ sql: createTableSQL }),
+        })
+
+        if (!response.ok) {
+          console.warn("Failed to create table via API, falling back to RPC")
+        }
+      } catch (apiError) {
+        console.warn("Error calling exec-sql API:", apiError)
+      }
+
+      // Fallback: Try to use the built-in RPC function
+      try {
+        await supabase.rpc("exec_sql", { sql: createTableSQL }).catch((err) => {
+          console.error("Error creating table via RPC:", err)
+          // Continue even if this fails - we'll try the insert anyway
+        })
+      } catch (rpcError) {
+        console.warn("RPC method failed:", rpcError)
+      }
 
       // Populate with initial data
       const couponsWithIds = availableCoupons.map((coupon) => ({
@@ -138,7 +159,10 @@ export default function CouponManagementPage() {
       // Update in database
       const { error: dbError } = await supabase.from("coupons").update({ isActive: newStatus }).eq("id", coupon.id)
 
-      if (dbError) throw dbError
+      if (dbError) {
+        console.error("Database error when updating coupon:", dbError)
+        throw new Error(`Database error: ${dbError.message}`)
+      }
 
       // Update in memory
       setCoupons((prev) => prev.map((c) => (c.id === coupon.id ? { ...c, isActive: newStatus } : c)))

@@ -21,6 +21,7 @@ export default function ProductManagementPage() {
   const [isLoadingProducts, setIsLoadingProducts] = useState(true)
   const [message, setMessage] = useState({ type: "", text: "" })
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [debugInfo, setDebugInfo] = useState<string | null>(null)
 
   // Check if authenticated
   useEffect(() => {
@@ -37,8 +38,22 @@ export default function ProductManagementPage() {
     const loadProducts = async () => {
       try {
         setIsLoadingProducts(true)
-        const products = await fetchProductsFromDB()
-        setAllProducts(products)
+
+        // First try to load from database
+        try {
+          const products = await fetchProductsFromDB()
+          if (products && products.length > 0) {
+            setAllProducts(products)
+            return
+          }
+        } catch (dbError) {
+          console.error("Error loading products from DB:", dbError)
+          setDebugInfo(`DB Error: ${String(dbError)}`)
+        }
+
+        // Fallback to static data if DB fails
+        const { products, specialProducts } = await import("@/lib/data")
+        setAllProducts([...products, ...specialProducts])
       } catch (error) {
         console.error("Error loading products:", error)
         setMessage({ type: "error", text: "Failed to load products. Please try again." })
@@ -66,9 +81,25 @@ export default function ProductManagementPage() {
   const refreshProducts = async () => {
     try {
       setIsLoadingProducts(true)
-      const products = await fetchProductsFromDB()
-      setAllProducts(products)
-      setMessage({ type: "success", text: "Products refreshed successfully!" })
+      setMessage({ type: "", text: "" })
+
+      // First try to load from database
+      try {
+        const products = await fetchProductsFromDB()
+        if (products && products.length > 0) {
+          setAllProducts(products)
+          setMessage({ type: "success", text: "Products refreshed successfully from database!" })
+          return
+        }
+      } catch (dbError) {
+        console.error("Error refreshing products from DB:", dbError)
+        setDebugInfo(`Refresh DB Error: ${String(dbError)}`)
+      }
+
+      // Fallback to static data if DB fails
+      const { products, specialProducts } = await import("@/lib/data?timestamp=" + Date.now())
+      setAllProducts([...products, ...specialProducts])
+      setMessage({ type: "success", text: "Products refreshed successfully from static data!" })
     } catch (error) {
       console.error("Error refreshing products:", error)
       setMessage({ type: "error", text: "Failed to refresh products. Please try again." })
@@ -77,9 +108,64 @@ export default function ProductManagementPage() {
     }
   }
 
+  const createProductsTable = async () => {
+    try {
+      const supabase = getSupabaseServiceClient()
+
+      // Create products table
+      const createTableSQL = `
+        CREATE TABLE IF NOT EXISTS public.products (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          price NUMERIC NOT NULL,
+          original_price NUMERIC,
+          description TEXT,
+          image TEXT,
+          is_subscription BOOLEAN DEFAULT false,
+          slug TEXT,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+      `
+
+      // Try to execute SQL directly via API endpoint
+      try {
+        const response = await fetch("/api/admin/exec-sql", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ sql: createTableSQL }),
+        })
+
+        if (!response.ok) {
+          console.warn("Failed to create table via API, falling back to RPC")
+        }
+      } catch (apiError) {
+        console.warn("Error calling exec-sql API:", apiError)
+      }
+
+      // Fallback: Try to use the built-in RPC function
+      try {
+        const { error: rpcError } = await supabase.rpc("exec_sql", { sql: createTableSQL })
+        if (rpcError) {
+          console.error("Error creating table via RPC:", rpcError)
+        }
+      } catch (rpcError) {
+        console.warn("RPC method failed:", rpcError)
+      }
+
+      return true
+    } catch (error) {
+      console.error("Error creating products table:", error)
+      throw error
+    }
+  }
+
   const saveChanges = async () => {
     setIsLoading(true)
     setMessage({ type: "", text: "" })
+    setDebugInfo(null)
 
     try {
       // Use the service client for admin operations to ensure proper permissions
@@ -94,57 +180,36 @@ export default function ProductManagementPage() {
 
       // If table doesn't exist or there's an error, create it
       if (tableCheckError || !tableExists) {
-        // Create products table
-        const createTableSQL = `
-          CREATE TABLE IF NOT EXISTS public.products (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            price NUMERIC NOT NULL,
-            original_price NUMERIC,
-            description TEXT,
-            image TEXT,
-            is_subscription BOOLEAN DEFAULT false,
-            slug TEXT,
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-          );
-        `
-
-        // Execute the SQL directly
-        try {
-          const { error: rpcError } = await supabase.rpc("exec_sql", { sql: createTableSQL })
-          if (rpcError) {
-            console.error("Error creating table via RPC:", rpcError)
-            // Continue even if this fails - we'll try the insert anyway
-          }
-        } catch (err) {
-          console.error("Exception when creating table via RPC:", err)
-          // Continue even if this fails - we'll try the insert anyway
-        }
+        await createProductsTable()
       }
 
       // Update existing products
       const updatePromises = allProducts.map(async (product) => {
-        const { error } = await supabase.from("products").upsert(
-          {
-            id: product.id,
-            name: product.name,
-            price: product.price,
-            original_price: product.originalPrice || product.price,
-            description: product.description,
-            image: product.image,
-            is_subscription: product.isSubscription || false,
-            slug: product.slug,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "id" },
-        )
+        try {
+          const { error } = await supabase.from("products").upsert(
+            {
+              id: product.id,
+              name: product.name,
+              price: product.price,
+              original_price: product.originalPrice || product.price,
+              description: product.description,
+              image: product.image,
+              is_subscription: product.isSubscription || false,
+              slug: product.slug,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "id" },
+          )
 
-        if (error) {
-          console.error(`Error updating product ${product.id}:`, error)
-          return { success: false, id: product.id, error }
+          if (error) {
+            console.error(`Error updating product ${product.id}:`, error)
+            return { success: false, id: product.id, error }
+          }
+          return { success: true, id: product.id }
+        } catch (err) {
+          console.error(`Exception updating product ${product.id}:`, err)
+          return { success: false, id: product.id, error: err }
         }
-        return { success: true, id: product.id }
       })
 
       const results = await Promise.all(updatePromises)
@@ -156,6 +221,7 @@ export default function ProductManagementPage() {
           type: "warning",
           text: `Updated ${results.length - failures.length} products, but ${failures.length} failed. Please try again.`,
         })
+        setDebugInfo(`Failed products: ${failures.map((f) => f.id).join(", ")}`)
       } else {
         // Clear any cached data to ensure fresh data is loaded
         localStorage.removeItem("annapurna-products-cache")
@@ -168,6 +234,7 @@ export default function ProductManagementPage() {
     } catch (error: any) {
       console.error("Error saving product prices:", error)
       setMessage({ type: "error", text: `Failed to update product prices: ${error.message || "Unknown error"}` })
+      setDebugInfo(`Error details: ${String(error)}`)
     } finally {
       setIsLoading(false)
     }
@@ -206,11 +273,22 @@ export default function ProductManagementPage() {
               ? "bg-green-50 border-green-200 text-green-800"
               : message.type === "warning"
                 ? "bg-yellow-50 border-yellow-200 text-yellow-800"
-                : "variant-destructive"
+                : "bg-red-50 border-red-200 text-red-800"
           }`}
         >
           {message.type === "error" && <AlertCircle className="h-4 w-4 mr-2" />}
           <AlertDescription>{message.text}</AlertDescription>
+        </Alert>
+      )}
+
+      {debugInfo && (
+        <Alert className="mb-6 bg-blue-50 border-blue-200 text-blue-800">
+          <AlertDescription>
+            <details>
+              <summary>Debug Information (Click to expand)</summary>
+              <pre className="mt-2 text-xs overflow-auto max-h-40">{debugInfo}</pre>
+            </details>
+          </AlertDescription>
         </Alert>
       )}
 
