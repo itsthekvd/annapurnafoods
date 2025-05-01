@@ -5,30 +5,6 @@ import type { Product } from "./types"
  * This helps search engines understand our content better
  */
 
-export interface HowToStep {
-  "@type": "HowToStep"
-  name: string
-  text: string
-  url?: string
-  image?: string
-}
-
-export interface HowToSchema {
-  "@context": "https://schema.org"
-  "@type": "HowTo"
-  name: string
-  description: string
-  totalTime?: string
-  estimatedCost?: {
-    "@type": "MonetaryAmount"
-    currency: string
-    value: string
-  }
-  supply?: string[]
-  tool?: string[]
-  step: HowToStep[]
-}
-
 // Function to get the base URL dynamically
 export function getBaseUrl() {
   // Use the environment variable if available
@@ -656,18 +632,6 @@ export function generateRecipeSchema(recipe: {
   keywords: string
   recipeCategory: string
   recipeCuisine: string
-  nutrition?: {
-    calories?: string
-    fatContent?: string
-    saturatedFatContent?: string
-    cholesterolContent?: string
-    sodiumContent?: string
-    carbohydrateContent?: string
-    fiberContent?: string
-    sugarContent?: string
-    proteinContent?: string
-  }
-  video?: string
 }) {
   const siteUrl = getBaseUrl()
 
@@ -692,121 +656,49 @@ export function generateRecipeSchema(recipe: {
       "@type": "HowToStep",
       position: index + 1,
       text: step,
-      url: `${siteUrl}/recipes/${recipe.name.toLowerCase().replace(/\s+/g, "-")}#step-${index + 1}`,
-      image: recipe.image,
     })),
     keywords: recipe.keywords,
     recipeCategory: recipe.recipeCategory,
     recipeCuisine: recipe.recipeCuisine,
     nutrition: {
       "@type": "NutritionInformation",
-      calories: recipe.nutrition?.calories || "350 calories",
-      fatContent: recipe.nutrition?.fatContent || "10 g",
-      saturatedFatContent: recipe.nutrition?.saturatedFatContent || "2 g",
-      cholesterolContent: recipe.nutrition?.cholesterolContent || "0 mg",
-      sodiumContent: recipe.nutrition?.sodiumContent || "300 mg",
-      carbohydrateContent: recipe.nutrition?.carbohydrateContent || "50 g",
-      fiberContent: recipe.nutrition?.fiberContent || "8 g",
-      sugarContent: recipe.nutrition?.sugarContent || "5 g",
-      proteinContent: recipe.nutrition?.proteinContent || "15 g",
+      calories: "350 calories",
+      fatContent: "10 g",
+      carbohydrateContent: "50 g",
+      proteinContent: "15 g",
+      fiberContent: "8 g",
     },
-    suitableForDiet: [
-      "https://schema.org/VegetarianDiet",
-      "https://schema.org/LowFatDiet",
-      "https://schema.org/LowSaltDiet",
-    ],
+    suitableForDiet: "https://schema.org/VegetarianDiet",
     recipeContext: "Sattvik cooking traditions from South India",
-    aggregateRating: {
-      "@type": "AggregateRating",
-      ratingValue: "4.8",
-      reviewCount: "24",
-    },
-    video: recipe.video
-      ? {
-          "@type": "VideoObject",
-          name: `How to prepare ${recipe.name}`,
-          description: `Learn how to prepare ${recipe.name} - ${recipe.description}`,
-          thumbnailUrl: recipe.image,
-          contentUrl: recipe.video,
-          uploadDate: new Date().toISOString(),
-          duration: "PT5M", // Example duration: 5 minutes
-        }
-      : undefined,
   }
 }
 
 // HowTo schema for delivery or ordering instructions
-export function generateHowToSchema({
-  name,
-  description,
-  steps,
-  totalTime,
-  estimatedCost,
-  supplies,
-  tools,
-}: {
+export function generateHowToSchema(howTo: {
   name: string
   description: string
-  steps: { name: string; text: string; url?: string; image?: string }[]
-  totalTime?: string
-  estimatedCost?: { currency: string; value: string }
-  supplies?: string[]
-  tools?: string[]
-}): HowToSchema {
-  try {
-    const howToSteps: HowToStep[] = steps.map((step) => ({
+  steps: { name: string; text: string; image?: string }[]
+}) {
+  const siteUrl = getBaseUrl()
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    name: howTo.name,
+    description: howTo.description,
+    step: howTo.steps.map((step, index) => ({
       "@type": "HowToStep",
+      position: index + 1,
       name: step.name,
       text: step.text,
-      ...(step.url ? { url: step.url } : {}),
-      ...(step.image ? { image: step.image } : {}),
-    }))
-
-    const schema: HowToSchema = {
-      "@context": "https://schema.org",
-      "@type": "HowTo",
-      name,
-      description,
-      step: howToSteps,
-    }
-
-    if (totalTime) {
-      schema.totalTime = totalTime
-    }
-
-    if (estimatedCost) {
-      schema.estimatedCost = {
-        "@type": "MonetaryAmount",
-        currency: estimatedCost.currency,
-        value: estimatedCost.value,
-      }
-    }
-
-    if (supplies && supplies.length > 0) {
-      schema.supply = supplies
-    }
-
-    if (tools && tools.length > 0) {
-      schema.tool = tools
-    }
-
-    return schema
-  } catch (error) {
-    console.error("Error generating HowTo schema:", error)
-    // Return a minimal valid schema to prevent rendering errors
-    return {
-      "@context": "https://schema.org",
-      "@type": "HowTo",
-      name: "Instructions",
-      description: "Step by step instructions",
-      step: [
-        {
-          "@type": "HowToStep",
-          name: "Default Step",
-          text: "Please follow product instructions",
-        },
-      ],
-    }
+      image: step.image
+        ? {
+            "@type": "ImageObject",
+            url: step.image,
+          }
+        : undefined,
+      url: `${siteUrl}/how-to#step-${index + 1}`,
+    })),
   }
 }
 
@@ -1006,6 +898,26 @@ export function generatePageSchemas(pageName: string, pageData: any = {}) {
       )
 
       // Add HowTo schema for checkout process
+      schemas.push(
+        generateHowToSchema({
+          name: "How to Order Food from Annapurna Foods",
+          description: "Follow these simple steps to order fresh, home-cooked Sattvik meals from Annapurna Foods.",
+          steps: [
+            { name: "Select Items", text: "Browse our menu and select the items you want to order." },
+            {
+              name: "Review Cart",
+              text: "Review your cart to ensure you have selected the correct items and quantities.",
+            },
+            { name: "Enter Delivery Details", text: "Enter your delivery address and contact information." },
+            {
+              name: "Choose Payment Method",
+              text: "Select your preferred payment method: Cash on Delivery, UPI, or Card Payment.",
+            },
+            { name: "Place Order", text: "Confirm your order and complete the payment process." },
+            { name: "Track Order", text: "Use the order tracking feature to monitor the status of your delivery." },
+          ],
+        }),
+      )
       break
 
     case "contact":

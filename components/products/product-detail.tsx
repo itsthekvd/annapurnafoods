@@ -1,160 +1,299 @@
 "use client"
 
-import type React from "react"
-import { useState } from "react"
-import Image from "next/image"
+import { useState, useEffect, useMemo, useCallback } from "react"
+import { useRouter } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Badge } from "@/components/ui/badge"
+import { Tag, Info } from "lucide-react"
 import type { Product } from "@/lib/types"
+import { useCart } from "@/contexts/cart-context"
+import { useCoupon } from "@/contexts/coupon-context"
+import { subscriptionOptions } from "@/lib/data"
+import { getRecommendationsForProduct } from "@/lib/recommendation-engine"
+import ProductRecommendations from "./product-recommendations"
+import { useTracking } from "@/contexts/tracking-context"
 import ProductImageGallery from "./product-image-gallery"
-import CookingInstructions from "./cooking-instructions"
-import DeliveryInstructions from "@/components/delivery/delivery-instructions"
-import { cn } from "@/lib/utils"
+import { getAdditionalProductImages } from "@/lib/image-utils"
 
 interface ProductDetailProps {
   product: Product
-  onAddToCart: (product: Product, quantity: number) => void
 }
 
-export default function ProductDetail({ product, onAddToCart }: ProductDetailProps) {
+export default function ProductDetail({ product }: ProductDetailProps) {
   const [quantity, setQuantity] = useState(1)
-  const [selectedSize, setSelectedSize] = useState(product.sizes?.[0] || null)
+  const [subscriptionOption, setSubscriptionOption] = useState(product.isSubscription ? "one-time" : "")
+  const [recommendations, setRecommendations] = useState<Product[]>([])
 
-  const handleQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = Number.parseInt(e.target.value)
-    if (!isNaN(value) && value > 0) {
-      setQuantity(value)
+  const router = useRouter()
+  const { addItem } = useCart()
+  const { appliedCoupon, calculateDiscountedPrice } = useCoupon()
+  const { trackProductView } = useTracking()
+
+  // Track product view when component mounts
+  useEffect(() => {
+    trackProductView(product)
+  }, [product, trackProductView])
+
+  // Get recommendations when product changes
+  useEffect(() => {
+    setRecommendations(getRecommendationsForProduct(product.id))
+  }, [product.id])
+
+  // Get the selected subscription option details with memoization
+  const selectedOption = useMemo(() => {
+    return subscriptionOptions.find((option) => option.id === subscriptionOption)
+  }, [subscriptionOption])
+
+  // Calculate prices with memoization
+  const originalTotalPrice = useMemo(() => {
+    return product.price * (selectedOption?.durationInDays || 1)
+  }, [product.price, selectedOption?.durationInDays])
+
+  const discountedPrice = useMemo(() => {
+    return calculateDiscountedPrice(
+      product.price,
+      selectedOption?.durationInDays || 1,
+      selectedOption?.discountPercentage || 0,
+    )
+  }, [product.price, selectedOption?.durationInDays, selectedOption?.discountPercentage, calculateDiscountedPrice])
+
+  // Calculate savings with memoization
+  const totalSavings = useMemo(() => {
+    return originalTotalPrice - discountedPrice
+  }, [originalTotalPrice, discountedPrice])
+
+  const savingsPercentage = useMemo(() => {
+    return Math.round((totalSavings / originalTotalPrice) * 100)
+  }, [totalSavings, originalTotalPrice])
+
+  // Handle quantity change
+  const handleQuantityChange = useCallback((value: string) => {
+    setQuantity(Number.parseInt(value))
+  }, [])
+
+  // Handle subscription option change
+  const handleSubscriptionChange = useCallback((value: string) => {
+    setSubscriptionOption(value)
+  }, [])
+
+  // Handle add to cart
+  const handleAddToCart = useCallback(() => {
+    if (product.isSubscription && subscriptionOption) {
+      const option = subscriptionOptions.find((opt) => opt.id === subscriptionOption)
+      addItem(product, 1, undefined, subscriptionOption, option?.durationInDays)
+    } else {
+      addItem(product, quantity)
     }
-  }
 
-  const handleAddToCart = () => {
-    const productToAdd = selectedSize ? { ...product, price: selectedSize.price, size: selectedSize.name } : product
-    onAddToCart(productToAdd, quantity)
-  }
+    // Navigate to cart page
+    router.push("/cart")
+  }, [product, subscriptionOption, quantity, addItem, router])
 
-  // Define cooking steps based on product type
-  const getCookingSteps = () => {
-    switch (product.category?.toLowerCase()) {
-      case "sweets":
-        return [
-          { name: "Storage", text: "Store in a cool, dry place away from direct sunlight." },
-          { name: "Serving", text: "Best enjoyed at room temperature." },
-        ]
-      case "snacks":
-        return [
-          { name: "Preparation", text: "No preparation needed, ready to eat." },
-          { name: "Storage", text: "Keep in an airtight container after opening." },
-        ]
-      case "juices":
-        return [
-          { name: "Serving", text: "Shake well before serving. Serve chilled." },
-          { name: "Storage", text: "Refrigerate after opening and consume within 24 hours." },
-        ]
-      default:
-        return [
-          { name: "Preparation", text: "Follow package instructions for best results." },
-          { name: "Storage", text: "Store appropriately based on product type." },
-        ]
-    }
-  }
+  // Render subscription options section
+  const renderSubscriptionOptions = () => (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-2">Choose Your Plan</label>
+      <Select value={subscriptionOption} onValueChange={handleSubscriptionChange}>
+        <SelectTrigger className="w-full">
+          <SelectValue placeholder="Select a plan" />
+        </SelectTrigger>
+        <SelectContent>
+          {subscriptionOptions.map((option) => (
+            <SelectItem key={option.id} value={option.id}>
+              {option.name} {option.discountPercentage > 0 && `(${option.discountPercentage}% extra off)`}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      {selectedOption && (
+        <div className="mt-4">
+          <Card className="bg-amber-50 border-amber-100">
+            <CardContent className="pt-4 pb-4">
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-gray-700">Plan:</span>
+                  <span className="font-medium">{selectedOption.name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-700">Duration:</span>
+                  <span className="font-medium">{selectedOption.durationInDays} day(s)</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-700">Original Price:</span>
+                  <span className="font-medium">₹{originalTotalPrice.toFixed(2)}</span>
+                </div>
+                {appliedCoupon && (
+                  <div className="flex justify-between text-green-700">
+                    <span>Coupon Discount:</span>
+                    <span className="font-medium">
+                      -₹{(appliedCoupon.discount * (selectedOption.durationInDays || 1)).toFixed(2)}
+                    </span>
+                  </div>
+                )}
+                {selectedOption.discountPercentage > 0 && (
+                  <div className="flex justify-between text-amber-700">
+                    <span>Plan Discount ({selectedOption.discountPercentage}%):</span>
+                    <span className="font-medium">
+                      -₹{(originalTotalPrice * (selectedOption.discountPercentage / 100)).toFixed(2)}
+                    </span>
+                  </div>
+                )}
+                <div className="border-t pt-2 mt-2">
+                  <div className="flex justify-between font-bold">
+                    <span>Final Price:</span>
+                    <span className="text-amber-700">₹{discountedPrice.toFixed(2)}</span>
+                  </div>
+                </div>
+                {totalSavings > 0 && (
+                  <div className="bg-green-100 p-2 rounded-md text-center text-green-800 font-medium mt-2">
+                    You save ₹{totalSavings.toFixed(2)} ({savingsPercentage}%)
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+    </div>
+  )
+
+  // Render quantity selector section
+  const renderQuantitySelector = () => (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-2">Quantity</label>
+      <Select value={quantity.toString()} onValueChange={handleQuantityChange}>
+        <SelectTrigger className="w-full">
+          <SelectValue placeholder="Select quantity" />
+        </SelectTrigger>
+        <SelectContent>
+          {[1, 2, 3, 4, 5].map((num) => (
+            <SelectItem key={num} value={num.toString()}>
+              {num}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <div className="mt-4">
+        <Card className="bg-amber-50 border-amber-100">
+          <CardContent className="pt-4 pb-4">
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-gray-700">Original Price:</span>
+                <span className="font-medium">₹{(product.price * quantity).toFixed(2)}</span>
+              </div>
+              {appliedCoupon && (
+                <div className="flex justify-between text-green-700">
+                  <span>Coupon Discount:</span>
+                  <span className="font-medium">-₹{(appliedCoupon.discount * quantity).toFixed(2)}</span>
+                </div>
+              )}
+              <div className="border-t pt-2 mt-2">
+                <div className="flex justify-between font-bold">
+                  <span>Final Price:</span>
+                  <span className="text-amber-700">
+                    ₹{calculateDiscountedPrice(product.price, quantity).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+              {appliedCoupon && (
+                <div className="bg-green-100 p-2 rounded-md text-center text-green-800 font-medium mt-2">
+                  You save ₹{(appliedCoupon.discount * quantity).toFixed(2)} (
+                  {Math.round((appliedCoupon.discount / product.price) * 100)}%)
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  )
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex flex-col md:flex-row gap-8">
-        <div className="md:w-1/2">
-          {product.images && product.images.length > 0 ? (
-            <ProductImageGallery images={product.images} alt={product.name} />
-          ) : (
-            <div className="relative h-96 w-full bg-gray-200 rounded-lg overflow-hidden">
-              <Image
-                src={product.image || "/placeholder.svg?height=400&width=400&query=food"}
-                alt={product.name}
-                fill
-                className="object-cover"
-              />
-            </div>
-          )}
+    <div className="container mx-auto px-4 py-12">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+        <div>
+          <ProductImageGallery
+            mainImage={product.image || "/placeholder.svg"}
+            additionalImages={getAdditionalProductImages(product.id)}
+            productName={product.name}
+          />
         </div>
 
-        <div className="md:w-1/2">
-          <h1 className="text-3xl font-bold mb-2">{product.name}</h1>
+        <div>
+          <h1 className="text-3xl font-bold text-amber-800 mb-4">{product.name}</h1>
 
-          {product.tags && product.tags.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-4">
-              {product.tags.map((tag, index) => (
-                <span key={index} className="px-2 py-1 bg-amber-100 text-amber-800 text-xs rounded-full">
-                  {tag}
-                </span>
-              ))}
-            </div>
-          )}
-
-          <div className="mb-4">
-            {selectedSize ? (
-              <p className="text-2xl font-bold">₹{selectedSize.price.toFixed(2)}</p>
-            ) : (
-              <p className="text-2xl font-bold">₹{product.price.toFixed(2)}</p>
+          <div className="flex items-center mb-6">
+            <span className="text-2xl font-bold text-amber-700">₹{product.price.toFixed(2)}</span>
+            {appliedCoupon && (
+              <Badge className="ml-3 bg-green-100 text-green-800 border-green-200">
+                <Tag className="h-3 w-3 mr-1" />
+                {appliedCoupon.code}
+              </Badge>
             )}
-
-            {product.originalPrice && <p className="text-gray-500 line-through">₹{product.originalPrice.toFixed(2)}</p>}
           </div>
 
-          <div className="mb-6">
-            <p>{product.description}</p>
-          </div>
-
-          {product.sizes && product.sizes.length > 0 && (
-            <div className="mb-6">
-              <h3 className="text-lg font-medium mb-2">Size Options</h3>
-              <div className="flex flex-wrap gap-2">
-                {product.sizes.map((size, index) => (
-                  <button
-                    key={index}
-                    className={cn(
-                      "px-4 py-2 border rounded-md",
-                      selectedSize?.name === size.name ? "border-amber-500 bg-amber-50" : "border-gray-300",
-                    )}
-                    onClick={() => setSelectedSize(size)}
-                  >
-                    {size.name} - ₹{size.price.toFixed(2)}
-                  </button>
-                ))}
-              </div>
-            </div>
+          {appliedCoupon && (
+            <Card className="mb-6 bg-green-50 border-green-100">
+              <CardContent className="pt-4 pb-4">
+                <div className="flex items-start">
+                  <Info className="h-5 w-5 text-green-600 mr-2 mt-0.5" />
+                  <div>
+                    <h3 className="font-semibold text-green-800">Promotional Discount Applied!</h3>
+                    <p className="text-green-700 text-sm">
+                      {appliedCoupon.description}:
+                      {appliedCoupon.type === "fixed"
+                        ? ` ₹${appliedCoupon.discount} off per meal`
+                        : ` ${appliedCoupon.discount}% off your order`}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           )}
 
-          <div className="flex items-center gap-4 mb-6">
-            <div className="w-24">
-              <label htmlFor="quantity" className="block text-sm font-medium text-gray-700 mb-1">
-                Quantity
-              </label>
-              <input
-                type="number"
-                id="quantity"
-                min="1"
-                value={quantity}
-                onChange={handleQuantityChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              />
-            </div>
+          <div className="prose prose-amber mb-6">
+            <p className="text-gray-700 text-lg">{product.description}</p>
 
-            <button
-              onClick={handleAddToCart}
-              className="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-2 px-4 rounded-md transition"
-            >
-              Add to Cart
-            </button>
+            {product.longDescription && <div className="mt-4 text-gray-600">{product.longDescription}</div>}
           </div>
 
-          {/* Add the cooking instructions component */}
-          <CookingInstructions
-            productName={product.name}
-            productType={product.category || "food"}
-            steps={getCookingSteps()}
-          />
+          <Card className="mb-6 bg-amber-50 border-amber-100">
+            <CardContent className="pt-6">
+              <h3 className="font-semibold mb-2">Delivery Information</h3>
+              <p className="text-gray-600">
+                {product.name.includes("Brunch") ? "Brunch delivery at 8:30am" : "Dinner delivery at 8:30pm"}
+              </p>
+              <p className="text-gray-600 mt-2">
+                <strong>Note:</strong> We require at least 24 hours to prepare your order.
+                {product.isSubscription
+                  ? " Your subscription will begin on your selected start date."
+                  : " Please select a delivery date during checkout that is at least 24 hours from now."}
+              </p>
+            </CardContent>
+          </Card>
 
-          {/* Add the delivery instructions component */}
-          <DeliveryInstructions productName={product.name} />
+          <div className="space-y-6">
+            {product.isSubscription ? renderSubscriptionOptions() : renderQuantitySelector()}
+
+            <Button
+              onClick={handleAddToCart}
+              className="w-full bg-amber-700 hover:bg-amber-800 py-6 text-lg"
+              disabled={product.isSubscription && !subscriptionOption}
+            >
+              {product.isSubscription && subscriptionOption !== "one-time" ? "Subscribe Now" : "Add to Cart"}
+            </Button>
+          </div>
         </div>
       </div>
+
+      {/* Frequently Purchased Together */}
+      {recommendations.length > 0 && (
+        <ProductRecommendations title="Frequently Purchased Together" products={recommendations} />
+      )}
     </div>
   )
 }

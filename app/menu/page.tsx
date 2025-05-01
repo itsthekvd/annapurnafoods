@@ -1,74 +1,57 @@
-import { Suspense } from "react"
-import { products, specialProducts } from "@/lib/data"
+import type { Metadata } from "next"
 import ProductGrid from "@/components/products/product-grid"
-import BreadcrumbSchema from "@/components/schema/breadcrumb-schema"
-import SeoMetaTags from "@/components/meta/seo-meta-tags"
-import Script from "next/script"
+import { products, specialProducts } from "@/lib/data"
+import SchemaMarkup from "@/components/schema-markup"
+import { generatePageSchemas } from "@/lib/schema-utils"
 
-export default function MenuPage() {
-  // Use static products for initial render to ensure we always have an array
-  const staticProducts = [...products, ...specialProducts]
-
-  // Generate menu schema
-  const menuSchema = {
-    "@context": "https://schema.org",
-    "@type": "ItemList",
-    itemListElement: staticProducts.map((product, index) => ({
-      "@type": "ListItem",
-      position: index + 1,
-      item: {
-        "@type": "Product",
-        name: product.name,
-        url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://annapurnafoods.com"}/menu/${product.slug}`,
-        image: product.image,
-        description: product.description,
-        offers: {
-          "@type": "Offer",
-          price: product.price,
-          priceCurrency: "INR",
-        },
+export const metadata: Metadata = {
+  title: "Menu - Healthy Meal Delivery Services in Coimbatore | Annapurna Foods",
+  description:
+    "Browse our menu of fresh, home-cooked Sattvik meals delivered daily near Isha Yoga Center. Healthy food tiffin services in Coimbatore with subscription options.",
+  openGraph: {
+    title: "Healthy Meal Delivery Menu - Annapurna Foods Coimbatore",
+    description:
+      "Explore our menu of fresh, home-cooked Sattvik meals with daily delivery near Isha Yoga Center. Healthy food tiffin services in Coimbatore.",
+    images: [
+      {
+        url: "https://ucarecdn.com/f2132019-968c-4f1e-9bae-46ec7daa3d44/Brunchscaled.jpg",
+        width: 1200,
+        height: 630,
+        alt: "Annapurna Foods Menu",
       },
-    })),
-  }
+    ],
+  },
+}
+
+export default async function MenuPage() {
+  const allProducts = [...products, ...specialProducts]
+
+  // Generate menu page schemas
+  const menuSchemas = generatePageSchemas("menu", { products: allProducts })
 
   return (
     <>
-      {/* SEO Meta Tags */}
-      <SeoMetaTags
-        title="Menu - Annapurna Foods | Fresh Sattvik Meals Delivery"
-        description="Browse our menu of fresh, home-cooked Sattvik meals delivered daily near Isha Yoga Center. Healthy food tiffin services in Coimbatore with subscription options."
-        canonicalPath="/menu"
-        keywords={[
-          "Sattvik food menu",
-          "Vegetarian meal options",
-          "Healthy food menu",
-          "Tiffin service menu",
-          "Daily meal options",
-          "Food delivery menu",
-          "Meal subscription plans",
-        ]}
-      />
+      <SchemaMarkup schemas={menuSchemas} />
+      <div className="container mx-auto px-4 py-12">
+        <div className="text-center mb-12">
+          <h1 className="text-3xl font-bold text-amber-800 mb-4">
+            Healthy Home Cooked Food Delivery Menu in Coimbatore
+          </h1>
+          <p className="text-gray-600 max-w-2xl mx-auto">
+            Delicious, nutritious Sattvik meals prepared with love and care by Isha Volunteers. Daily meal delivery
+            services near Isha Yoga Center Coimbatore.
+          </p>
+        </div>
 
-      {/* Structured Data */}
-      <BreadcrumbSchema
-        items={[
-          { name: "Home", url: "/" },
-          { name: "Menu", url: "/menu" },
-        ]}
-      />
+        <div className="mb-16">
+          <h2 className="text-2xl font-semibold text-amber-700 mb-6">Daily Meals</h2>
+          <ProductGrid products={products} />
+        </div>
 
-      <Script
-        id="menu-schema"
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(menuSchema) }}
-      />
-
-      <div className="container mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold mb-8 text-center">Our Menu</h1>
-
-        <Suspense fallback={<div>Loading products...</div>}>
-          <ProductGrid products={staticProducts} />
-        </Suspense>
+        <div>
+          <h2 className="text-2xl font-semibold text-amber-700 mb-6">Festival Specials</h2>
+          <ProductGrid products={specialProducts} />
+        </div>
       </div>
     </>
   )
