@@ -12,6 +12,9 @@ import ImageShowcase from "@/components/home/image-showcase"
 import SchemaMarkup from "@/components/schema-markup"
 import { generatePageSchemas } from "@/lib/schema-utils"
 
+// Import the new SanskritBanner component at the top of the file
+import SanskritBanner from "@/components/home/sanskrit-banner"
+
 export const metadata: Metadata = {
   title: "Annapurna Foods - Sattvik Home Cooked Food Delivery in Coimbatore near Isha Yoga Center",
   description:
@@ -110,6 +113,7 @@ export default function Home() {
         <main className="flex min-h-screen flex-col">
           <h1 className="sr-only">Annapurna Foods - Home Cooked Food Delivery near Isha Yoga Center Coimbatore</h1>
           <Hero />
+          <SanskritBanner />
           <div id="featured-products">
             <FeaturedProducts />
           </div>
